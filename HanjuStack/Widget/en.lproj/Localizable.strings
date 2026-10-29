@@ -1,0 +1,9 @@
+"블록 완료 바꾸기" = "Toggle Block Completion";
+"블록 삭제" = "Delete Block";
+"블록" = "Block";
+"할 일 목록" = "Task List";
+"이번 주 할 일만 시간 없이 나열해요. 네모를 누르면 바로 완료돼요." = "This week’s tasks without times. Check a box to complete a task.";
+"한 주 판" = "Week Board";
+"이번 주 블록을 한눈에 봐요. 블록을 누르면 바로 완료로 바뀌어요." = "See this week at a glance. Click a block to mark it complete.";
+"오늘 블록" = "Today’s Blocks";
+"가로로 긴 크기는 오늘 시간을 접어서 블록으로 보여줘요. 누르면 바로 완료돼요." = "Plan today in folded time columns. Click a block to complete it.";

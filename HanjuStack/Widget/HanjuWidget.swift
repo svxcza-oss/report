@@ -6,7 +6,7 @@ import CoreText
 
 // 한 주 쌓기 위젯 — reads (and edits) the copy the app keeps inside this extension's container.
 // v4 uses ten-minute slots; older saves are converted only when reading.
-let dayNames = ["월", "화", "수", "목", "금", "토", "일"]
+
 
 struct Block: Identifiable {
     let id: String
@@ -33,7 +33,7 @@ struct DayRange {
 struct Board {
     var blocks: [Block] = []
     var range = DayRange()
-    var timeFormat = "kr"
+    var language = HanjuLanguage.system
     var dark = false          // 앱의 절전 모드(어두운 화면)
 }
 
@@ -71,7 +71,7 @@ func int(_ v: Any?, _ fallback: Int) -> Int { (v as? NSNumber)?.intValue ?? fall
 func loadBoard() -> Board {
     guard let store = try? HanjuStore.production(), let root = try? store.read() else { return Board() }
     var board = Board()
-    board.timeFormat = root["timeFormat"] as? String == "us" ? "us" : "kr"
+    board.language = HanjuLanguage.resolve(root["language"])
     board.dark = root["theme"] as? String == "saver"
     if let r = root["range"] as? [String: Any] {
         let from = min(23, max(0, int(r["from"], 8)))
@@ -131,9 +131,9 @@ let doneGray = Color(red: 0.62, green: 0.63, blue: 0.66).opacity(0.55)
 func fillColor(_ b: Block) -> Color { b.fixed ? fixedGray : b.done ? doneGray : blockColor(b.color) }
 func textColor(_ b: Block) -> Color { b.fixed || b.done ? .white : inkColor(b.color) }
 
-func clock(_ slot: Int, _ format: String = "kr") -> String {
+func clock(_ slot: Int, _ language: String = "ko") -> String {
     let m = slot * 10, h = m / 60
-    if format == "us" { return String(format: "%d:%02d %@", h % 12 == 0 ? 12 : h % 12, m % 60, h % 24 < 12 ? "AM" : "PM") }
+    if language == "en" { return String(format: "%d:%02d %@", h % 12 == 0 ? 12 : h % 12, m % 60, h % 24 < 12 ? "AM" : "PM") }
     return String(format: "%d:%02d", h, m % 60)
 }
 
@@ -284,7 +284,7 @@ struct WeekView: View {
             HStack(alignment: .firstTextBaseline) {
                 Text("\(monthDay(days[0])) – \(monthDay(days[6]))").font(wf(14, .heavy)).monospacedDigit()
                 Spacer()
-                Text("완료 \(Double(doneSum) / 6, specifier: "%g") / \(Double(total) / 6, specifier: "%g")시간")
+                Text(HanjuLanguage.text("완료 ", "Done ", language: entry.board.language) + String(format: "%g / %g", Double(doneSum) / 6, Double(total) / 6) + HanjuLanguage.text("시간", "h", language: entry.board.language))
                     .font(wf(10)).foregroundStyle(.secondary)
             }
             HStack(alignment: .top, spacing: 3) {
@@ -295,7 +295,7 @@ struct WeekView: View {
                     VStack(spacing: 3) {
                         Link(destination: URL(string: "hanju://day/\(key)")!) {
                             HStack(spacing: 2) {
-                                Text(dayNames[i]).font(wf(10, .bold))
+                                Text(HanjuLanguage.days(entry.board.language)[i]).font(wf(10, .bold))
                                     .foregroundStyle(key == todayKey ? Color.accentColor : Color.primary)
                                 if !regular.isEmpty && regular.allSatisfy({ $0.done }) {
                                     Circle().fill(blockColor(4)).frame(width: 5, height: 5)
@@ -336,7 +336,7 @@ struct FoldedDayView: View {
                         GeometryReader { geo in
                             let step = geo.size.height / CGFloat(perCol)
                             ForEach(0..<(h1 - h0), id: \.self) { k in
-                                Text(clock((h0 + k) * 6, entry.board.timeFormat))
+                                Text(clock((h0 + k) * 6, entry.board.language))
                                     .font(wf(8, .medium)).monospacedDigit()
                                     .foregroundStyle(.secondary)
                                     .frame(width: 38, alignment: .trailing)
@@ -362,7 +362,7 @@ struct TodayHeader: View {
         let cal = Calendar(identifier: .gregorian)
         let regular = list.filter { !$0.fixed }
         return HStack {
-            Text("\(cal.component(.month, from: entry.date))/\(cal.component(.day, from: entry.date)) \(dayNames[weekdayIndex(entry.date)])")
+            Text("\(cal.component(.month, from: entry.date))/\(cal.component(.day, from: entry.date)) \(HanjuLanguage.days(entry.board.language)[weekdayIndex(entry.date)])")
                 .font(wf(13, .bold))
             Spacer()
             if !regular.isEmpty && regular.allSatisfy({ $0.done }) {
@@ -399,13 +399,13 @@ struct TodayList: View {
         return VStack(alignment: .leading, spacing: 7) {
             TodayHeader(entry: entry, list: list)
             if list.isEmpty {
-                Text("오늘 쌓은 블록이 없어요").font(wf(11)).foregroundStyle(.secondary)
+                Text(HanjuLanguage.text("오늘 쌓은 블록이 없어요", "No blocks today", language: entry.board.language)).font(wf(11)).foregroundStyle(.secondary)
             } else {
                 ForEach(Array(list.prefix(limit))) { b in
-                    TodayRow(block: b, compact: !large, timeFormat: entry.board.timeFormat)
+                    TodayRow(block: b, compact: !large, language: entry.board.language)
                 }
                 if list.count > limit {
-                    Text("+ \(list.count - limit)개").font(wf(9)).foregroundStyle(.secondary)
+                    Text("+ \(list.count - limit)" + HanjuLanguage.text("개", " more", language: entry.board.language)).font(wf(9)).foregroundStyle(.secondary)
                 }
             }
             Spacer(minLength: 0)
@@ -419,7 +419,7 @@ struct TodayList: View {
 struct TodayRow: View {
     let block: Block
     let compact: Bool
-    var timeFormat = "kr"
+    var language = HanjuLanguage.system
 
     var piece: some View {
         VStack(spacing: 1) {
@@ -437,7 +437,7 @@ struct TodayRow: View {
                     Text(block.name).font(wf(12, .semibold)).lineLimit(1)
                         .foregroundStyle(.secondary)
                     if !compact {
-                        Text("\(clock(block.start, timeFormat))–\(clock(block.end, timeFormat)) · 매주")
+                        Text("\(clock(block.start, language))–\(clock(block.end, language)) \(HanjuLanguage.text("· 매주", "· weekly", language: language))")
                             .font(wf(10)).foregroundStyle(.secondary)
                     }
                 }
@@ -453,7 +453,7 @@ struct TodayRow: View {
                                 .strikethrough(block.done)
                                 .foregroundStyle(block.done ? Color.secondary : Color.primary)
                             if !compact {
-                                Text("\(clock(block.start, timeFormat))–\(clock(block.end, timeFormat))")
+                                Text("\(clock(block.start, language))–\(clock(block.end, language))")
                                     .font(wf(10)).foregroundStyle(.secondary)
                             }
                         }
@@ -526,16 +526,16 @@ struct TodoListView: View {
         let size: CGFloat = family == .systemSmall ? 11 : 12
         let done = todos.filter { $0.done }.count
         let label: (Block) -> String = { b in
-            b.date == todayKey ? "오늘" : dayNames[keys.firstIndex(of: b.date) ?? 0]
+            b.date == todayKey ? HanjuLanguage.text("오늘", "Today", language: entry.board.language) : HanjuLanguage.days(entry.board.language)[keys.firstIndex(of: b.date) ?? 0]
         }
         return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
-                Text("할 일").font(wf(14, .heavy))
+                Text(HanjuLanguage.text("할 일", "Tasks", language: entry.board.language)).font(wf(14, .heavy))
                 Spacer()
                 Text("\(done) / \(todos.count)").font(wf(11)).monospacedDigit().foregroundStyle(.secondary)
             }
             if todos.isEmpty {
-                Text("이번 주 할 일이 없어요").font(wf(11)).foregroundStyle(.secondary)
+                Text(HanjuLanguage.text("이번 주 할 일이 없어요", "No tasks this week", language: entry.board.language)).font(wf(11)).foregroundStyle(.secondary)
             } else {
                 HStack(alignment: .top, spacing: 14) {
                     ForEach(0..<cols, id: \.self) { c in
@@ -544,7 +544,7 @@ struct TodoListView: View {
                                 CheckRow(block: b, day: label(b), size: size)
                             }
                             if c == cols - 1 && todos.count > shown.count {
-                                Text("+ \(todos.count - shown.count)개 더").font(wf(10)).foregroundStyle(.secondary)
+                                Text("+ \(todos.count - shown.count)" + HanjuLanguage.text("개 더", " more", language: entry.board.language)).font(wf(10)).foregroundStyle(.secondary)
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .topLeading)

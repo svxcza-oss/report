@@ -111,7 +111,7 @@ button{font:inherit;cursor:pointer;border:0;border-radius:10px}
       </div>
     </div>
     <div class="week">
-      <select id="time-format" aria-label="시간 표시 방식"><option value="kr">한국식 · 24시간</option><option value="us">미국식 · AM/PM</option></select>
+      <select id="language" aria-label="언어 / Language"><option value="ko">한국어</option><option value="en">English</option></select>
       <button type="button" id="prev" aria-label="지난주">‹</button>
       <span id="range"></span>
       <button type="button" id="next" aria-label="다음 주">›</button>
@@ -152,7 +152,7 @@ button{font:inherit;cursor:pointer;border:0;border-radius:10px}
 
 <script>
 (()=>{
-const KEY='hanju-ssakgi-v2', DAYS=['월','화','수','목','금','토','일'];
+const KEY='hanju-ssakgi-v2';
 const NATIVE=!!(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.native);
 const $=id=>document.getElementById(id), board=$('board');
 if(NATIVE)document.documentElement.classList.add('native');
@@ -163,18 +163,21 @@ const at=h=>h*6; // v4: ten-minute slots from midnight
 const FROM=()=>S.range.from*6, TO=()=>S.range.to*6, ROWS=()=>TO()-FROM();
 const uid=()=>Math.random().toString(36).slice(2,9);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const hm=s=>{const m=s*10,h=Math.floor(m/60),minutes=String(m%60).padStart(2,'0');return S?.timeFormat==='us'?`${h%12||12}:${minutes} ${h%24<12?'AM':'PM'}`:`${h}:${minutes}`};
+const language=()=>S?.language||((navigator.language||'ko').toLowerCase().startsWith('ko')?'ko':'en');
+const T=(ko,en)=>language()==='en'?en:ko;
+const days=()=>T(['월','화','수','목','금','토','일'],['Mon','Tue','Wed','Thu','Fri','Sat','Sun']);
+const hm=s=>{const m=s*10,h=Math.floor(m/60),minutes=String(m%60).padStart(2,'0');return language()==='en'?`${h%12||12}:${minutes} ${h%24<12?'AM':'PM'}`:`${h}:${minutes}`};
 const key=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const today=()=>{const d=new Date();d.setHours(0,0,0,0);return d};
 const todayIdx=()=>(new Date().getDay()+6)%7;
 function weekDates(offset){const m=today();m.setDate(m.getDate()-todayIdx()+offset*7);return [...Array(7)].map((_,i)=>{const d=new Date(m);d.setDate(m.getDate()+i);return d})}
-const dayName=k=>DAYS[(new Date(k+'T00:00').getDay()+6)%7];
+const dayName=k=>days()[(new Date(k+'T00:00').getDay()+6)%7];
 
 function sample(){
   const w=weekDates(0).map(key), t=todayIdx(), d=k=>w[Math.min(6,t+k)];
   const b=(name,len,c,date,h,done=false)=>({id:uid(),name,len,c,date,start:h*2,done,sample:true});
   const f=(name,len,wd,h)=>({id:uid(),name,len,wd,start:h*2,fixed:true,sample:true});
-  return {v:3,theme:'light',mascot:'planner',lesser:true,range:{from:8,to:24},n:5,fixed:[f('전공 수업',4,0,10),f('전공 수업',4,2,10)],blocks:[b('PCCP 기출 2문제',2,1,d(0),20),b('비트코인 원문 과제',4,3,d(1),19),b('HWP 변환 테스트',2,4,d(2),15),b('의자 보러 가기',3,7,d(3),13),b('철학책 읽기',2,2,d(0),22,true)]};
+  return {v:3,theme:'light',mascot:'planner',lesser:true,range:{from:8,to:24},n:5,fixed:[f(T('전공 수업','Lecture'),4,0,10),f(T('전공 수업','Lecture'),4,2,10)],blocks:[b(T('PCCP 기출 2문제','Practice two problems'),2,1,d(0),20),b(T('비트코인 원문 과제','Read a paper'),4,3,d(1),19),b(T('HWP 변환 테스트','Work on a project'),2,4,d(2),15),b(T('의자 보러 가기','Run an errand'),3,7,d(3),13),b(T('철학책 읽기','Read a book'),2,2,d(0),22,true)]};
 }
 function migrate(v){ // older saves kept a weekday index, and counted time from 8시
   const w=weekDates(0).map(key);
@@ -182,7 +185,8 @@ function migrate(v){ // older saves kept a weekday index, and counted time from 
   if((v.v||0)<3){[...v.blocks,...v.fixed].forEach(b=>b.start=(b.start||0)+16);v.v=3;v._m=true}
   if(!v.range||!(v.range.to>v.range.from))v.range={from:8,to:24};
   if(v.v<4){[...v.blocks,...v.fixed].forEach(b=>{b.start*=3;b.len*=3});v.v=4;v._m=true}
-  if(v.timeFormat!=='us')v.timeFormat='kr';
+  if(!['ko','en'].includes(v.language)){v.language=(navigator.language||'ko').toLowerCase().startsWith('ko')?'ko':'en';v._m=true}
+  if(Object.prototype.hasOwnProperty.call(v,'timeFormat')){delete v.timeFormat;v._m=true}
   if(v.theme!=='saver')v.theme='light';if(v.mascot!=='passion')v.mascot='planner';if(v.lesser!==false)v.lesser=true;
   v.blocks.forEach(b=>{if(!b.date&&b.day!=null){b.date=w[b.day]}delete b.day});
   v.blocks=v.blocks.filter(b=>b.date);if(typeof v.n!=='number')v.n=v.blocks.length;
@@ -209,13 +213,30 @@ function spot(len){ // least-stacked day (from today on, in the week on screen),
 }
 let tt;function toast(m){const t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,1600)}
 
+function clearLabel(kind){return kind==='all'?T('전체 지우기','Delete all'):kind==='blocks'?T('고정 빼고 지우기','Delete tasks only'):T('고정만 지우기','Delete repeats only')}
+function applyLanguage(){
+  document.documentElement.lang=language();document.title=T('한 주 쌓기','HanjuStack');
+  const text={'h1':['한 주 쌓기','HanjuStack'],'#m-light':['☀︎ 라이트','☀︎ Light'],'#m-saver':['☾ 절전','☾ Dark'],'#now':['이번 주','This week'],'#add':['쌓기','Stack'],'#clear':['지우기','Delete'],'.rep label':['↻ 매주 고정','↻ Repeat weekly'],'#trash':['여기로 끌어서 삭제','Drop here to delete'],'.foot>span':['누르면 완료 · 끌어서 옮기기 · ⧉ 또는 ⌥(option) 누르고 끌면 복제 · 휴지통으로 끌면 삭제 · 회색 ↻는 매주 고정','Click to complete · drag to move · ⧉ or Option-drag to duplicate · drag to trash to delete · gray ↻ repeats weekly']};
+  for(const [selector,labels] of Object.entries(text))document.querySelector(selector).textContent=T(...labels);
+  const aria={'#prev':['지난주','Previous week'],'#next':['다음 주','Next week'],'#from':['하루 시작 시간','Day starts'],'#to':['하루 끝 시간','Day ends'],'#name':['할 일','Task'],'#dm':['10분 줄이기','Decrease by 10 minutes'],'#dp':['10분 늘리기','Increase by 10 minutes'],'#dur':['걸리는 시간','Duration']};
+  for(const [selector,labels] of Object.entries(aria))document.querySelector(selector).setAttribute('aria-label',T(...labels));
+  $('name').placeholder=T('할 일 입력 (예: PCCP 기출 2문제)','Add a task (e.g. practice two problems)');
+  $('dur').title=T('직접 입력: 1:30 · 90분 · 1.5 · 2시간','Enter 1:30 · 90 min · 1.5 · 2h');
+  document.querySelector('.rep label').title=T('매주 같은 요일·시간에 반복돼요','Repeats at the same time every week');
+  document.querySelector('.mode').setAttribute('aria-label',T('화면 모드','Appearance'));
+  document.querySelector('.dur').setAttribute('aria-label',T('걸리는 시간','Duration'));
+  $('lesser-art').title=T('누르면 다른 레서로 바뀌어요','Click to switch Lesser');
+  for(const b of document.querySelectorAll('#clear-opts .opt'))if(!b.classList.contains('armed'))b.textContent=clearLabel(b.dataset.what);
+}
+
 function render(fresh,flash){
+  applyLanguage();
   const dates=weekDates(wk), tk=key(today()), h=slotH();
   $('range').textContent=`${dates[0].getMonth()+1}/${dates[0].getDate()} – ${dates[6].getMonth()+1}/${dates[6].getDate()}`;
   $('now').hidden=wk===0;
   let html='<div></div>';
   dates.forEach((dt,i)=>{const k=key(dt),mine=S.blocks.filter(b=>b.date===k);/* CLEAR counts only this week's blocks */
-    html+=`<div class="dh${k===tk?' today':''}"><b>${DAYS[i]}</b>${dt.getMonth()+1}/${dt.getDate()}${mine.length&&mine.every(b=>b.done)?'<br><span class="clr">CLEAR</span>':''}</div>`});
+    html+=`<div class="dh${k===tk?' today':''}"><b>${days()[i]}</b>${dt.getMonth()+1}/${dt.getDate()}${mine.length&&mine.every(b=>b.done)?'<br><span class="clr">CLEAR</span>':''}</div>`});
   const step=S.range.to-S.range.from>12?2:1;
   html+='<div class="times">';for(let hr=S.range.from+1;hr<S.range.to;hr+=step)html+=`<span style="top:${(hr*6-FROM())*h}px">${hm(hr*6)}</span>`;html+='</div>';
   let outside=0;
@@ -223,20 +244,21 @@ function render(fresh,flash){
     html+=`<div class="col${k===tk?' today':''}" data-date="${k}" style="--slots:${ROWS()}">`;
     for(const b of onDay(k)){if(b.start+b.len<=FROM()||b.start>=TO()){outside++;continue}const top=(b.start-FROM())*h;
       html+=`<div class="blk${b.len===1?' short':''}${b.fixed?' fixed':''}${b.done?' done':''}${fresh===b.id?' drop':''}${flash===b.id?' flash':''}" tabindex="0" role="button" data-id="${b.id}" title="${esc(b.name)} ${hm(b.start)}–${hm(b.start+b.len)}"
-        aria-label="${esc(b.name)}, ${dayName(k)} ${hm(b.start)}부터${b.done?', 완료':''}"
-        style="top:${top}px;height:${b.len*h}px;--c:${b.fixed?'var(--fixed)':'var(--t'+b.c+')'};--ink:${b.c===2?'#2a2200':'#fff'};--fall:${top+60}px"><span>${esc(b.name)}</span>${b.len*h>=16?'<i class="dup" title="복제 (⌘D)" aria-hidden="true">⧉</i>':''}</div>`}
+        aria-label="${esc(b.name)}, ${dayName(k)} ${hm(b.start)}${T('부터','')}${b.done?T(', 완료',', completed'):''}"
+        style="top:${top}px;height:${b.len*h}px;--c:${b.fixed?'var(--fixed)':'var(--t'+b.c+')'};--ink:${b.c===2?'#2a2200':'#fff'};--fall:${top+60}px"><span>${esc(b.name)}</span>${b.len*h>=16?'<i class="dup" title="Duplicate (⌘D)" aria-hidden="true">⧉</i>':''}</div>`}
     html+='</div>';
   });
   board.innerHTML=html;
   board.querySelectorAll('.blk').forEach(el=>{el.addEventListener('pointerdown',down);el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle(el.dataset.id)}else if(e.key==='Delete'||e.key==='Backspace'){remove(el.dataset.id)}else if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='d'){e.preventDefault();dupe(el.dataset.id)}})});
+  board.querySelectorAll('.blk .dup').forEach(d=>d.title=T('복제 (⌘D)','Duplicate (⌘D)'));
   board.querySelectorAll('.blk .dup').forEach(d=>d.addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();dupe(d.parentElement.dataset.id)}));
-  $('hidden-note').textContent=outside?`보이는 시간 밖에 블록 ${outside}개`:'';
-  $('time-format').value=S.timeFormat;
+  $('hidden-note').textContent=outside?T(`보이는 시간 밖에 블록 ${outside}개`,`${outside} blocks outside visible hours`):'';
+  $('language').value=S.language;
   for(const id of ['from','to'])for(const o of $(id).options)o.textContent=hm(Number(o.value)*6);
   $('from').value=S.range.from;$('to').value=S.range.to;
 }
-function toggle(id,quiet){const b=find(id);if(!b)return;if(b.fixed){toast('매주 고정 일정이에요 · 끌어서 옮기거나 휴지통으로 지워요');return}b.done=!b.done;if(b.done&&b.date===key(today()))L.celebrate();save();render(null,b.done?id:null);
-  if(b.done&&!quiet){const mine=S.blocks.filter(x=>x.date===b.date);toast(mine.every(x=>x.done)?dayName(b.date)+'요일 클리어!':'완료!')}
+function toggle(id,quiet){const b=find(id);if(!b)return;if(b.fixed){toast(T('매주 고정 일정이에요 · 끌어서 옮기거나 휴지통으로 지워요','Repeats weekly · drag to move or delete'));return}b.done=!b.done;if(b.done&&b.date===key(today()))L.celebrate();save();render(null,b.done?id:null);
+  if(b.done&&!quiet){const mine=S.blocks.filter(x=>x.date===b.date);toast(mine.every(x=>x.done)?T(dayName(b.date)+'요일 클리어!',dayName(b.date)+' cleared!'):T('완료!','Done!'))}
   board.querySelector(`[data-id="${id}"]`)?.focus({preventScroll:true})}
 function copyOf(b,date,start){
   if(b.fixed){const f={id:uid(),name:b.name,len:b.len,wd:wdOf(date),start,fixed:true};S.fixed.push(f);return f}
@@ -246,10 +268,10 @@ function dupe(id){ // same day right after the original, else anywhere free that
   const date=b.fixed?key(weekDates(wk)[b.wd]):b.date;let s=null;
   for(let t=b.start+b.len;t+b.len<=TO();t++)if(fits(date,t,b.len)){s=t;break}
   if(s==null)for(let t=FROM();t+b.len<=TO();t++)if(fits(date,t,b.len)){s=t;break}
-  let d=date;if(s==null){const p=spot(b.len);if(!p){toast('복제할 빈칸이 없어요');return}d=p.d;s=p.s}
-  const c=copyOf(b,d,s);save();render(c.id);toast(`복제했어요 · ${dayName(d)} ${hm(s)}`);
+  let d=date;if(s==null){const p=spot(b.len);if(!p){toast(T('복제할 빈칸이 없어요','No free slot to duplicate this block'));return}d=p.d;s=p.s}
+  const c=copyOf(b,d,s);save();render(c.id);toast(T(`복제했어요 · ${dayName(d)} ${hm(s)}`,`Duplicated · ${dayName(d)} ${hm(s)}`));
   board.querySelector(`[data-id="${c.id}"]`)?.focus({preventScroll:true})}
-function remove(id){S.blocks=S.blocks.filter(b=>b.id!==id);S.fixed=S.fixed.filter(b=>b.id!==id);save();render();toast('삭제했어요')}
+function remove(id){S.blocks=S.blocks.filter(b=>b.id!==id);S.fixed=S.fixed.filter(b=>b.id!==id);save();render();toast(T('삭제했어요','Deleted'))}
 function showDate(k){const d=new Date(k+'T00:00');if(isNaN(d))return;
   const monD=new Date(d);monD.setDate(d.getDate()-((d.getDay()+6)%7));const monT=weekDates(0)[0];
   wk=Math.round((monD-monT)/(7*864e5));render()}
@@ -265,14 +287,14 @@ $('f').addEventListener('submit',e=>{
   e.preventDefault();const name=$('name').value.trim();
   if(!name){$('name').focus();return}
   const len=readDur(), p=spot(len);
-  if(!p){toast(wk<0?'지난주에는 쌓을 수 없어요':'이 주에 남은 빈칸이 없어요');return}
-  if($('rep').checked){const f={id:uid(),name,len,wd:wdOf(p.d),start:p.s,fixed:true};S.fixed.push(f);$('name').value='';$('rep').checked=false;save();render(f.id);toast(`매주 ${dayName(p.d)} ${hm(p.s)} 고정 · 끌어서 원하는 시간으로 옮겨요`);return}
+  if(!p){toast(wk<0?T('지난주에는 쌓을 수 없어요','Cannot add blocks to a past week'):T('이 주에 남은 빈칸이 없어요','No free slot this week'));return}
+  if($('rep').checked){const f={id:uid(),name,len,wd:wdOf(p.d),start:p.s,fixed:true};S.fixed.push(f);$('name').value='';$('rep').checked=false;save();render(f.id);toast(T(`매주 ${dayName(p.d)} ${hm(p.s)} 고정 · 끌어서 원하는 시간으로 옮겨요`,`Repeats every ${dayName(p.d)} at ${hm(p.s)} · drag to adjust`));return}
   const b={id:uid(),name,len,c:(S.n%7)+1,date:p.d,start:p.s,done:false};S.n++;
-  S.blocks.push(b);$('name').value='';save();render(b.id);toast(`${dayName(p.d)} ${hm(p.s)}에 쌓았어요`);
+  S.blocks.push(b);$('name').value='';save();render(b.id);toast(T(`${dayName(p.d)} ${hm(p.s)}에 쌓았어요`,`Added · ${dayName(p.d)} ${hm(p.s)}`));
 });
 /* ---------- 걸리는 시간: − / + 로 10분씩, 또는 직접 입력 ---------- */
 let dur=6; // ten-minute slots
-const durText=n=>{const mins=n*10,h=Math.floor(mins/60),m=mins%60;return h&&m?`${h}시간 ${m}분`:h?`${h}시간`:`${m}분`};
+const durText=n=>{const mins=n*10,h=Math.floor(mins/60),m=mins%60;return language()==='en'?(h&&m?`${h}h ${m}min`:h?`${h}h`:`${m}min`):(h&&m?`${h}시간 ${m}분`:h?`${h}시간`:`${m}분`)};
 function parseDur(t){
   t=String(t).trim().replace(/\s+/g,'');if(!t)return null;let m;
   if(m=t.match(/^(\d{1,2}):(\d{1,2})$/))return(+m[1]*60+ +m[2]);
@@ -283,25 +305,25 @@ function parseDur(t){
   if(m=t.match(/^(\d*\.\d+)$/))return +m[1]*60;
   return null}
 function setDur(n){dur=Math.max(1,Math.min(144,n));$('dur').value=durText(dur);$('dm').disabled=dur<=1;$('dp').disabled=dur>=144}
-function readDur(){const v=parseDur($('dur').value);if(v!=null&&v>0){setDur(Math.ceil(v/10));if(v%10)toast('10분 단위로 올림해요 · '+durText(dur))}else setDur(dur);return dur}
+function readDur(){const v=parseDur($('dur').value);if(v!=null&&v>0){setDur(Math.ceil(v/10));if(v%10)toast(T('10분 단위로 올림해요 · ','Rounded up to 10 minutes · ')+durText(dur))}else setDur(dur);return dur}
 $('dm').onclick=()=>setDur(readDur()-1);$('dp').onclick=()=>setDur(readDur()+1);
 $('dur').addEventListener('focus',e=>e.target.select());
-$('dur').addEventListener('change',()=>{const v=parseDur($('dur').value);if(v==null)toast('예: 1:30 · 90분 · 2시간');readDur()});
+$('dur').addEventListener('change',()=>{const v=parseDur($('dur').value);if(v==null)toast(T('예: 1:30 · 90분 · 2시간','Try 1:30 · 90 min · 2h'));readDur()});
 $('dur').addEventListener('keydown',e=>{if(e.key==='ArrowUp'){e.preventDefault();setDur(readDur()+1)}else if(e.key==='ArrowDown'){e.preventDefault();setDur(readDur()-1)}});
 setDur(6);
 $('clear').onclick=()=>{$('clear-opts').hidden=!$('clear-opts').hidden};
-document.querySelectorAll('#clear-opts .opt').forEach(btn=>{const label=btn.textContent;let t=null;
+document.querySelectorAll('#clear-opts .opt').forEach(btn=>{const label=()=>clearLabel(btn.dataset.what);let t=null;
   btn.onclick=()=>{
-    if(!btn.classList.contains('armed')){btn.classList.add('armed');btn.textContent='한 번 더 누르면 지워져요';t=setTimeout(()=>{btn.classList.remove('armed');btn.textContent=label},3000);return}
-    clearTimeout(t);btn.classList.remove('armed');btn.textContent=label;$('clear-opts').hidden=true;
+    if(!btn.classList.contains('armed')){btn.classList.add('armed');btn.textContent=T('한 번 더 누르면 지워져요','Click again to delete');t=setTimeout(()=>{btn.classList.remove('armed');btn.textContent=label()},3000);return}
+    clearTimeout(t);btn.classList.remove('armed');btn.textContent=label();$('clear-opts').hidden=true;
     const w=btn.dataset.what;
     if(w!=='fixed')S.blocks=[];if(w!=='blocks')S.fixed=[];
-    save();render();toast(w==='all'?'모두 지웠어요':w==='blocks'?'고정 일정만 남겼어요':'고정 일정을 지웠어요');
+    save();render();toast(w==='all'?T('모두 지웠어요','All blocks deleted'):w==='blocks'?T('고정 일정만 남겼어요','Kept repeating blocks only'):T('고정 일정을 지웠어요','Repeating blocks deleted'));
   }});
 for(let i=0;i<=23;i++)$('from').insertAdjacentHTML('beforeend',`<option value="${i}">${hm(i*6)}</option>`);
 for(let i=1;i<=24;i++)$('to').insertAdjacentHTML('beforeend',`<option value="${i}">${hm(i*6)}</option>`);
-function setRange(){let f=+$('from').value,t=+$('to').value;if(t<=f){toast('끝 시간은 시작보다 늦어야 해요');render();return}S.range={from:f,to:t};save();render()}
-$('time-format').onchange=()=>{S.timeFormat=$('time-format').value;save();render()};
+function setRange(){let f=+$('from').value,t=+$('to').value;if(t<=f){toast(T('끝 시간은 시작보다 늦어야 해요','End time must be later than start time'));render();return}S.range={from:f,to:t};save();render()}
+$('language').onchange=()=>{S.language=$('language').value;save();setDur(dur);render();applyMode()};
 $('from').onchange=setRange;$('to').onchange=setRange;
 $('prev').onclick=()=>{wk--;render()};$('next').onclick=()=>{wk++;render()};$('now').onclick=()=>{wk=0;render()};
 
@@ -336,8 +358,8 @@ function up(){
   if(!moved){toggle(b.id);return}
   if(t&&t.trash){if(copy){render();return}remove(b.id);return}
   if(copy&&t&&t.ok){const c=copyOf(b,t.date,t.start);save();render(c.id);toast(`복제했어요 · ${dayName(t.date)} ${hm(t.start)}`);return}
-  if(t&&t.ok){if(b.fixed){b.wd=wdOf(t.date)}else{b.date=t.date}b.start=t.start;save();render(b.id);if(b.fixed)toast(`매주 ${dayName(t.date)} ${hm(t.start)}로 옮겼어요`);return}
-  if(t)toast('다른 블록과 겹쳐요');render();
+  if(t&&t.ok){if(b.fixed){b.wd=wdOf(t.date)}else{b.date=t.date}b.start=t.start;save();render(b.id);if(b.fixed)toast(T(`매주 ${dayName(t.date)} ${hm(t.start)}로 옮겼어요`,`Moved repeat · ${dayName(t.date)} ${hm(t.start)}`));return}
+  if(t)toast(T('다른 블록과 겹쳐요','Overlaps another block'));render();
 }
 addEventListener('resize',()=>{if(!drag)render()});
 S=load();if(S._m){delete S._m;save()}
@@ -348,11 +370,11 @@ function applyMode(){
   document.documentElement.dataset.theme=saver?'dark':'light';
   document.body.classList.toggle('saver',saver);
   $('m-light').setAttribute('aria-pressed',String(!saver));$('m-saver').setAttribute('aria-pressed',String(saver));
-  $('lesser').hidden=!S.lesser;$('lesser-toggle').textContent=S.lesser?'레서 숨기기':'레서 보이기';
+  $('lesser').hidden=!S.lesser;$('lesser-toggle').textContent=S.lesser?T('레서 숨기기','Hide Lesser'):T('레서 보이기','Show Lesser');
   L.redraw();
 }
 $('m-light').onclick=()=>{S.theme='light';save();applyMode()};
-$('m-saver').onclick=()=>{S.theme='saver';save();applyMode();toast('절전 모드: 어두운 화면')};
+$('m-saver').onclick=()=>{S.theme='saver';save();applyMode();toast(T('절전 모드: 어두운 화면','Dark mode enabled'))};
 $('lesser-toggle').onclick=()=>{S.lesser=!S.lesser;save();applyMode()};
 
 /* ---------- 레서: PlanLess companion.js의 그림·시선·깜빡임 로직을 그대로 옮김 ---------- */
@@ -365,7 +387,7 @@ const L=(()=>{
   const box=$('lesser');let x=null,target=0,pauseUntil=0,lastT=0,walkStart=0;
   const span=()=>Math.max(0,innerWidth-110);
   function place(){if(x==null){x=span()-20;target=20+Math.random()*(span()-40)}box.style.transform=`translateX(${Math.round(x)}px)`}
-  const names={planner:'계획단장 레서',passion:'열정 레서'};
+  const names=()=>({planner:T('계획단장 레서','Planner Lesser'),passion:T('열정 레서','Passion Lesser')});
   function frameAt(time,times){let pos=Math.max(0,time)%times.reduce((a,b)=>a+b,0);for(let i=0;i<times.length;i++){if(pos<times[i])return i;pos-=times[i]}return 0}
   function nowBlock(){const d=new Date(),k=key(d),slot=d.getHours()*6+Math.floor(d.getMinutes()/10);
     return S.blocks.find(b=>b.date===k&&!b.done&&b.start<=slot&&slot<b.start+b.len)}
@@ -376,9 +398,9 @@ const L=(()=>{
     return nowBlock()?'working':'idle';
   }
   function words(m){
-    if(m==='complete')return `잘했어요! 축하 ${Math.min(5,Math.floor((performance.now()-celebStart)/1500)+1)} / 5`;
-    if(m==='working'){const b=nowBlock();return b?`함께 진행 중 · ${b.name}`:'함께 진행 중'}
-    return '쉬는 중 · 포인터를 따라봐요';
+    if(m==='complete')return T('잘했어요! 축하 ','Great work! ')+`${Math.min(5,Math.floor((performance.now()-celebStart)/1500)+1)} / 5`;
+    if(m==='working'){const b=nowBlock();return b?T(`함께 진행 중 · ${b.name}`,`Working together · ${b.name}`):T('함께 진행 중','Working together')}
+    return T('쉬는 중 · 포인터를 따라봐요','Resting · following your pointer');
   }
   function draw(now){
     const m=currentMode(now);if(m!==mode){mode=m;modeStart=now}
@@ -402,14 +424,14 @@ const L=(()=>{
     const sig=c+'/'+shown+'/'+frame;
     if(ready&&lastDraw!==sig&&images[sig]){lastDraw=sig;ctx.imageSmoothingEnabled=false;ctx.clearRect(0,0,80,80);ctx.drawImage(images[sig],0,0,80,80)}
     const w=words(m);if(say.textContent!==w)say.textContent=w;
-    canvas.setAttribute('aria-label',names[c]+' · '+w);
+    canvas.setAttribute('aria-label',names()[c]+' · '+w);
   }
   function loop(now){draw(now);if(S.lesser&&!document.hidden)raf=requestAnimationFrame(loop);else raf=0}
   function redraw(){lastDraw='';cancelAnimationFrame(raf);raf=0;
     if(!S.lesser){draw(performance.now())}else raf=requestAnimationFrame(loop)}
   document.addEventListener('pointermove',e=>{const r=canvas.getBoundingClientRect();pointer={x:Math.max(-1,Math.min(1,(e.clientX-r.left-r.width/2)/220)),y:Math.max(-1,Math.min(1,(e.clientY-r.top-r.height/2)/180))}});
   document.addEventListener('visibilitychange',redraw);
-  canvas.onclick=()=>{S.mascot=S.mascot==='planner'?'passion':'planner';save();redraw();toast(names[S.mascot]+'로 바꿨어요')};
+  canvas.onclick=()=>{S.mascot=S.mascot==='planner'?'passion':'planner';save();redraw();toast(T(names()[S.mascot]+'로 바꿨어요','Switched to '+names()[S.mascot]))};
   const pending=[];
   for(const c of Object.keys(TIMINGS))for(const m of ['idle','working','complete'])for(let i=0;i<TIMINGS[c][m].length;i++)
     pending.push(new Promise(res=>{const im=new Image();im.onload=()=>{images[c+'/'+m+'/'+i]=im;res()};im.onerror=res;im.src=`Mascots/${c}/${m}/frame-${String(i+1).padStart(2,'0')}.png`}));

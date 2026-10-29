@@ -92,6 +92,8 @@ func lesserSnapshot(_ root: [String: Any], now: Date = Date()) -> CompanionSnaps
 }
 
 final class MenuBarLesser: NSObject {
+    private var language = HanjuLanguage.system
+    private func text(_ ko: String, _ en: String) -> String { HanjuLanguage.text(ko, en, language: language) }
     let playback = CompanionPlayback()
     let assets = CompanionAssets()
     private let statusItem = NSStatusBar.system.statusItem(withLength: 34)
@@ -126,6 +128,8 @@ final class MenuBarLesser: NSObject {
     }
 
     func update(_ root: [String: Any]) {
+        language = HanjuLanguage.resolve(root["language"])
+        statusItem.button?.toolTip = text("한 주 쌓기 · 레서", "HanjuStack · Lesser")
         playback.update(lesserSnapshot(root), at: ProcessInfo.processInfo.systemUptime)
         tick()
     }
@@ -159,23 +163,23 @@ final class MenuBarLesser: NSObject {
 
     private func showMenu() {
         let menu = NSMenu()
-        let open = menu.addItem(withTitle: "한 주 쌓기 열기", action: #selector(openApp), keyEquivalent: "")
+        let open = menu.addItem(withTitle: text("한 주 쌓기 열기", "Open HanjuStack"), action: #selector(openApp), keyEquivalent: "")
         open.target = self
         menu.addItem(.separator())
-        for (i, title) in ["계획단장 레서", "열정 레서"].enumerated() {
+        for (i, title) in [text("계획단장 레서", "Planner Lesser"), text("열정 레서", "Passion Lesser")].enumerated() {
             let item = menu.addItem(withTitle: title, action: #selector(pick(_:)), keyEquivalent: "")
             item.target = self; item.tag = i
             item.state = character == (i == 0 ? "planner" : "passion") ? .on : .off
         }
         menu.addItem(.separator())
-        let places: [(String, DesktopLesserPlace)] = [("바탕화면 레서: 바탕화면에서", .desktop),
-                                                      ("바탕화면 레서: 모든 창 위에서", .top), ("바탕화면 레서: 끄기", .off)]
+        let places: [(String, DesktopLesserPlace)] = [(text("바탕화면 레서: 바탕화면에서", "Desktop Lesser: on desktop"), .desktop),
+                                                      (text("바탕화면 레서: 모든 창 위에서", "Desktop Lesser: above all windows"), .top), (text("바탕화면 레서: 끄기", "Desktop Lesser: off"), .off)]
         for (i, (title, value)) in places.enumerated() {
             let item = menu.addItem(withTitle: title, action: #selector(pickPlace(_:)), keyEquivalent: "")
             item.target = self; item.tag = i; item.state = place == value ? .on : .off
         }
         menu.addItem(.separator())
-        menu.addItem(withTitle: "한 주 쌓기 종료", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(withTitle: text("한 주 쌓기 종료", "Quit HanjuStack"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         if let button = statusItem.button { menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.minY), in: button) }
     }
 

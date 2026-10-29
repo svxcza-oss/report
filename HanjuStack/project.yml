@@ -28,6 +28,10 @@ targets:
       - path: Sources
       - path: Shared
       - path: Resources/index.html
+      - path: Resources/en.lproj
+        type: folder
+      - path: Resources/ko.lproj
+        type: folder
       - path: Resources/PrivacyInfo.xcprivacy
       - path: Resources/Mascots
         type: folder

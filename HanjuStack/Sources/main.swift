@@ -11,6 +11,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     var web: WKWebView!
     var loaded = false
     var pending: [String] = []
+    var uiLanguage = HanjuLanguage.system
+    func text(_ ko: String, _ en: String) -> String { HanjuLanguage.text(ko, en, language: uiLanguage) }
     var lastRevision = -1
     var store: HanjuStore!
     var watcher: Timer?
@@ -19,15 +21,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     lazy var walker = DesktopLesser()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        buildMenu()
         let initial: [String: Any]?
         do { store = try HanjuStore.production(); initial = try store.read(); lastRevision = HanjuStore.revision(initial) }
         catch { NSAlert(error: error).runModal(); NSApp.terminate(nil); return }
+        uiLanguage = HanjuLanguage.resolve(initial?["language"]); buildMenu()
 
         window = NSWindow(contentRect: NSRect(x: 160, y: 160, width: 1040, height: 820),
                           styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                           backing: .buffered, defer: false)
-        window.title = "한 주 쌓기"
+        window.title = text("한 주 쌓기", "HanjuStack")
         window.minSize = NSSize(width: 600, height: 560)
         window.isReleasedWhenClosed = false
         window.setFrameAutosaveName("HanjuStackWindow")
@@ -88,16 +90,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         let main = NSMenu()
         let appItem = NSMenuItem(); main.addItem(appItem)
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "계획 가져오기…", action: #selector(importPlan), keyEquivalent: "o")
-        appMenu.addItem(withTitle: "계획 백업 내보내기…", action: #selector(exportPlan), keyEquivalent: "s")
+        appMenu.addItem(withTitle: text("계획 가져오기…", "Import Plan…"), action: #selector(importPlan), keyEquivalent: "o")
+        appMenu.addItem(withTitle: text("계획 백업 내보내기…", "Export Plan Backup…"), action: #selector(exportPlan), keyEquivalent: "s")
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "한 주 쌓기 종료", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: text("한 주 쌓기 종료", "Quit HanjuStack"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
         let editItem = NSMenuItem(); main.addItem(editItem)
-        let edit = NSMenu(title: "편집")
+        let edit = NSMenu(title: text("편집", "Edit"))
         for (title, sel, key) in [("실행 취소", "undo:", "z"), ("잘라내기", "cut:", "x"), ("복사", "copy:", "c"),
                                   ("붙여넣기", "paste:", "v"), ("전체 선택", "selectAll:", "a")] {
-            edit.addItem(withTitle: title, action: Selector(sel), keyEquivalent: key)
+            edit.addItem(withTitle: text(title, ["실행 취소":"Undo","잘라내기":"Cut","복사":"Copy","붙여넣기":"Paste","전체 선택":"Select All"][title] ?? title), action: Selector(sel), keyEquivalent: key)
         }
         editItem.submenu = edit
         NSApp.mainMenu = main
@@ -140,7 +142,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
 
     @objc func importPlan() {
         let panel = NSOpenPanel(); panel.allowedContentTypes = [.json]; panel.canChooseDirectories = false
-        panel.message = "이전 한 주 쌓기의 state.json 또는 백업 파일을 선택하세요. 현재 계획은 교체 전에 자동 백업돼요."
+        panel.message = text("이전 한 주 쌓기의 state.json 또는 백업 파일을 선택하세요. 현재 계획은 교체 전에 자동 백업돼요.", "Choose a previous state.json or backup. Your current plan is backed up before importing.")
         panel.beginSheetModal(for: window) { [weak self] response in
             guard response == .OK, let self, let url = panel.url else { return }
             let scoped = url.startAccessingSecurityScopedResource(); defer { if scoped { url.stopAccessingSecurityScopedResource() } }
@@ -172,6 +174,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     /// Menu bar 레서 + window look follow the saved state (character, 절전/라이트).
     func refreshLesser() {
         let root = (try? store.read()) ?? [:]
+        let language = HanjuLanguage.resolve(root["language"])
+        if language != uiLanguage { uiLanguage = language; buildMenu() }
+        window?.title = text("한 주 쌓기", "HanjuStack")
         lesser.character = root["mascot"] as? String == "passion" ? "passion" : "planner"
         let saver = root["theme"] as? String == "saver"
         walker.character = lesser.character
