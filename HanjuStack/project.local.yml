@@ -1,0 +1,84 @@
+# 개인용 빌드 (build-local.sh): 개발자 계정 없이 내 맥에서만 쓰는 애드혹 서명판.
+# 앱스토어용은 project.yml / build.sh / scripts/archive.sh 를 써요.
+name: HanjuStackLocal
+options:
+  deploymentTarget:
+    macOS: "14.0"
+configFiles:
+  Debug: Config/Local.xcconfig
+  Release: Config/Local.xcconfig
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.4.0"
+    CURRENT_PROJECT_VERSION: "4"
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+    ENABLE_HARDENED_RUNTIME: NO
+schemes:
+  HanjuStack:
+    build:
+      targets:
+        HanjuStack: all
+    archive:
+      config: Release
+targets:
+  HanjuStack:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources
+      - path: Shared
+      - path: Resources/index.html
+      - path: Resources/PrivacyInfo.xcprivacy
+      - path: Resources/Mascots
+        type: folder
+      - path: Resources/Fonts
+        type: folder
+      - path: Resources/Assets.xcassets
+    info:
+      path: Generated/App-Info.plist
+      properties:
+        CFBundleDisplayName: 한 주 쌓기
+        LSApplicationCategoryType: public.app-category.productivity
+        NSHighResolutionCapable: true
+        HanjuLocalWidgetID: $(HANJU_BUNDLE_ID).widget
+        CFBundleURLTypes:
+          - CFBundleURLName: Hanju
+            CFBundleURLSchemes: [hanju]
+    settings:
+      base:
+        ENABLE_APP_SANDBOX: NO
+        PRODUCT_BUNDLE_IDENTIFIER: $(HANJU_BUNDLE_ID)
+        PRODUCT_NAME: HanjuStack
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    dependencies:
+      - target: HanjuWidget
+        embed: true
+  HanjuWidget:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: Widget
+        excludes: [entitlements.plist]
+      - path: Shared
+      - path: Resources/Fonts
+        type: folder
+    info:
+      path: Generated/Widget-Info.plist
+      properties:
+        CFBundleDisplayName: 한 주 쌓기
+        HanjuLocalWidgetID: $(HANJU_BUNDLE_ID).widget
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Generated/Local-Widget.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+    settings:
+      base:
+        ENABLE_APP_SANDBOX: YES
+        PRODUCT_BUNDLE_IDENTIFIER: $(HANJU_BUNDLE_ID).widget
+        PRODUCT_NAME: HanjuWidget
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
