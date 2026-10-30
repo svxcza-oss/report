@@ -3,6 +3,20 @@
 할 일을 시간 길이만큼의 블록으로 만들어 일주일 판에 쌓는 앱이에요.
 화면은 `Resources/index.html`(웹 페이지), 저장과 위젯은 Swift가 맡아요.
 
+## 내 맥에 바로 설치 (개발자 계정 필요 없음)
+
+Xcode와 XcodeGen만 있으면 돼요 (`sudo xcode-select -s /Applications/Xcode.app`, `brew install xcodegen`).
+
+```sh
+pkill -x HanjuStack
+./build-local.sh
+rm -rf /Applications/HanjuStack.app && cp -R build/local/Release/HanjuStack.app /Applications/
+open /Applications/HanjuStack.app
+```
+
+예전 개인용 설치와 같은 저장 파일을 써서 쓰던 계획이 그대로 이어져요. 앱은 샌드박스 없이 위젯 폴더 안의 파일을 직접 같이 써요
+(`project.local.yml`, `Config/Local.xcconfig`). 이 방식은 내 맥 전용이고, 앱스토어에는 아래 서명 빌드를 써요.
+
 ## 빌드·App Store 준비
 
 전체 Xcode와 XcodeGen을 설치하고 `Config/Signing.xcconfig`에 본인의 Apple Developer Team ID와 고유 Bundle ID를 설정하세요. 앱과 위젯에 같은 App Group을 연결해야 합니다.

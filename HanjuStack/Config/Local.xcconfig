@@ -1,0 +1,6 @@
+// 개인용 빌드 설정 (build-local.sh). 개발자 계정·팀 ID가 필요 없어요.
+// 예전 개인용 설치와 같은 ID라서 쓰던 계획을 그대로 이어서 써요.
+DEVELOPMENT_TEAM =
+HANJU_BUNDLE_ID = local.hanju.stack
+CODE_SIGN_STYLE = Manual
+CODE_SIGN_IDENTITY = -

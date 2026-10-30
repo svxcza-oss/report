@@ -156,6 +156,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
                     return imported
                 }
                 self.lastRevision = -1; self.pullFromWidget(); WidgetCenter.shared.reloadAllTimelines()
+                let count = (imported["blocks"] as? [Any])?.count ?? 0, weekly = (imported["fixed"] as? [Any])?.count ?? 0
+                let done = NSAlert()
+                done.messageText = "가져왔어요"
+                done.informativeText = "블록 \(count)개, 매주 고정 \(weekly)개를 불러왔어요." + (count + weekly == 0 ? " 이 파일은 비어 있어요. 다른 파일을 골라 보세요." : "")
+                done.beginSheetModal(for: self.window)
             } catch { self.showError(error) }
         }
     }
