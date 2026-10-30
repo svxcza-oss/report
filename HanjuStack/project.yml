@@ -54,6 +54,8 @@ targets:
         com.apple.security.app-sandbox: true
         com.apple.security.application-groups: [$(HANJU_APP_GROUP)]
         com.apple.security.files.user-selected.read-write: true
+        # WKWebView의 웹 콘텐츠 프로세스는 샌드박스에서 이 권한이 없으면 빈 화면이 돼요. 페이지는 로컬 파일만 열고 외부 주소는 막아요.
+        com.apple.security.network.client: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(HANJU_BUNDLE_ID)

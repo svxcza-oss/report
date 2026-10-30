@@ -7,7 +7,10 @@ widget=plistlib.loads((root/'Widget/entitlements.plist').read_bytes())
 assert app['com.apple.security.app-sandbox'] and widget['com.apple.security.app-sandbox']
 assert app['com.apple.security.application-groups']==widget['com.apple.security.application-groups']==['$(HANJU_APP_GROUP)']
 assert app['com.apple.security.files.user-selected.read-write']
-assert not any(k.startswith('com.apple.security.network') for d in (app,widget) for k in d)
+# WKWebView needs network.client to render even local pages in the sandbox; nothing else network-related.
+assert app.get('com.apple.security.network.client') is True
+assert not any(k.startswith('com.apple.security.network') and k!='com.apple.security.network.client' for k in app)
+assert not any(k.startswith('com.apple.security.network') for k in widget)
 for path in ['Resources/PrivacyInfo.xcprivacy','Widget/PrivacyInfo.xcprivacy']:
  d=plistlib.loads((root/path).read_bytes());assert d['NSPrivacyTracking'] is False and not d['NSPrivacyCollectedDataTypes']
 project=(root/'project.yml').read_text()
