@@ -3,7 +3,16 @@
 할 일을 시간 길이만큼의 블록으로 만들어 일주일 판에 쌓는 앱이에요.
 화면은 `Resources/index.html`(웹 페이지), 저장과 위젯은 Swift가 맡아요.
 
-## 내 맥에 바로 설치 (개발자 계정 필요 없음)
+## 다운로드
+
+**[⬇︎ HanjuStack.zip](https://github.com/svxcza-oss/report/releases/latest/download/HanjuStack.zip)** — main이 바뀔 때마다 GitHub Actions가 자동으로 새로 빌드해요 (`.github/workflows/hanju-release.yml`).
+
+1. 받아서 풀고 `HanjuStack`을 응용 프로그램 폴더로 옮겨요.
+2. 처음 열 때 "확인되지 않은 개발자"로 막히면: 시스템 설정 → 개인정보 보호 및 보안 → **그래도 열기**
+   (또는 `xattr -dr com.apple.quarantine /Applications/HanjuStack.app`)
+3. 바탕화면 우클릭 → 위젯 편집 → "한 주 쌓기"
+
+## 내 맥에서 직접 빌드 (개발자 계정 필요 없음)
 
 Xcode와 XcodeGen만 있으면 돼요 (`sudo xcode-select -s /Applications/Xcode.app`, `brew install xcodegen`).
 
