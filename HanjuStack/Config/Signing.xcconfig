@@ -1,5 +1,5 @@
-// Set these after Apple Developer enrollment. Do not commit credentials/profiles.
-DEVELOPMENT_TEAM =
-HANJU_BUNDLE_ID = com.example.hanjustack
+// App Store용 서명 설정. 팀 ID는 비밀 정보가 아니지만, 인증서·프로비저닝 프로파일은 올리지 마세요.
+DEVELOPMENT_TEAM = R3VQX8W4NA
+HANJU_BUNDLE_ID = com.svxcza.hanjustack
 HANJU_APP_GROUP = group.$(HANJU_BUNDLE_ID)
 CODE_SIGN_STYLE = Automatic
