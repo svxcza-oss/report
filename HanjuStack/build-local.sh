@@ -11,6 +11,9 @@ fi
 command -v xcodegen >/dev/null 2>&1 || { echo "xcodegen이 필요해요:  brew install xcodegen"; exit 1; }
 mkdir -p Generated
 xcodegen generate --spec project.local.yml --quiet
+# HANJU_UNIVERSAL=1 이면 인텔·애플 실리콘 둘 다 되는 앱 (배포용 다운로드 파일)
+arch=(ONLY_ACTIVE_ARCH=YES)
+[[ "${HANJU_UNIVERSAL:-}" == 1 ]] && arch=(ONLY_ACTIVE_ARCH=NO "ARCHS=arm64 x86_64")
 xcodebuild -project HanjuStackLocal.xcodeproj -target HanjuStack -configuration Release \
-  SYMROOT="$PWD/build/local" ONLY_ACTIVE_ARCH=YES -quiet
+  SYMROOT="$PWD/build/local" "${arch[@]}" -quiet
 echo "완료: $PWD/build/local/Release/HanjuStack.app"

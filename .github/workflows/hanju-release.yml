@@ -1,0 +1,47 @@
+# 한 주 쌓기: main에 HanjuStack이 바뀔 때마다 맥 앱을 빌드해서
+# "한 주 쌓기 최신판" 릴리스에 HanjuStack.zip 으로 올려요.
+# 다운로드 주소: https://github.com/svxcza-oss/report/releases/latest/download/HanjuStack.zip
+name: 한 주 쌓기 빌드
+on:
+  push:
+    branches: [main]
+    paths: ['HanjuStack/**', '.github/workflows/hanju-release.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: hanju-release
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: XcodeGen 설치
+        run: brew install xcodegen
+      - name: 빌드 (인텔 + 애플 실리콘)
+        working-directory: HanjuStack
+        env:
+          HANJU_UNIVERSAL: '1'
+        run: ./build-local.sh
+      - name: 압축
+        run: |
+          ditto -c -k --keepParent HanjuStack/build/local/Release/HanjuStack.app HanjuStack.zip
+          lipo -archs HanjuStack/build/local/Release/HanjuStack.app/Contents/MacOS/HanjuStack
+      - name: 릴리스에 올리기
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete hanju-latest --yes --cleanup-tag || true
+          gh release create hanju-latest HanjuStack.zip \
+            --target "$GITHUB_SHA" --latest \
+            --title "한 주 쌓기 최신판" \
+            --notes "main의 최신 코드로 자동 빌드한 개인용 판이에요 (커밋 ${GITHUB_SHA::7}).
+
+          **설치**
+          1. HanjuStack.zip 을 받아서 더블클릭으로 풀고 HanjuStack 을 응용 프로그램 폴더로 옮겨요.
+          2. 처음 열 때 '확인되지 않은 개발자' 창이 뜨면: 시스템 설정 → 개인정보 보호 및 보안 → 아래쪽 '그래도 열기'.
+             또는 터미널에서 \`xattr -dr com.apple.quarantine /Applications/HanjuStack.app\`
+          3. 바탕화면 우클릭 → 위젯 편집 → '한 주 쌓기' 로 위젯 추가.
+
+          앱스토어 서명판이 아니라서 처음 한 번 위 과정이 필요해요. macOS 14 이상, 인텔·애플 실리콘 모두 지원."
