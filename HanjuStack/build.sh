@@ -13,4 +13,4 @@ fi
 python3 scripts/check-config.py --signing
 xcodegen generate --quiet
 xcodebuild -project HanjuStack.xcodeproj -scheme HanjuStack -configuration Debug \
-  -destination 'platform=macOS' -derivedDataPath build/DerivedData -allowProvisioningUpdates build
+  -destination 'platform=macOS' -derivedDataPath build/DerivedData -allowProvisioningUpdates -allowProvisioningDeviceRegistration build
