@@ -7,5 +7,5 @@ command -v xcodegen >/dev/null || { echo "xcodegen이 필요해요"; exit 1; }
 xcodegen generate --quiet
 xcodebuild -project HanjuStack.xcodeproj -scheme HanjuStackiOS -configuration Release \
   -destination 'generic/platform=iOS' -archivePath build/HanjuStack-iOS.xcarchive \
-  -allowProvisioningUpdates archive
+  -allowProvisioningUpdates -allowProvisioningDeviceRegistration archive
 echo "Xcode Organizer에서 build/HanjuStack-iOS.xcarchive 를 검증(Validate)한 뒤 App Store Connect로 올리세요."
