@@ -29,6 +29,7 @@ targets:
     sources:
       - path: Sources
       - path: Shared
+      - path: AppShared
       - path: Resources/index.html
       - path: Resources/PrivacyInfo.xcprivacy
       - path: Resources/Mascots

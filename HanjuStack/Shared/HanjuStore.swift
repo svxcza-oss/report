@@ -27,6 +27,7 @@ final class HanjuStore {
     /// 개인용 빌드(build-local.sh): 개발자 계정 없이 애드혹 서명. App Group 대신
     /// 샌드박스가 없는 앱이 위젯 컨테이너 안의 같은 파일을 직접 읽고 써요.
     static func personal(bundle: Bundle) -> HanjuStore? {
+        #if os(macOS)
         guard let widgetID = bundle.object(forInfoDictionaryKey: "HanjuLocalWidgetID") as? String,
               !widgetID.isEmpty, !widgetID.contains("$(") else { return nil }
         if bundle.bundleIdentifier == widgetID {
@@ -45,6 +46,9 @@ final class HanjuStore {
             }
             return shared
         })
+        #else
+        return nil
+        #endif
     }
     static func validate(_ state: [String: Any]) throws {
         let version = (state["v"] as? NSNumber)?.intValue ?? 0
