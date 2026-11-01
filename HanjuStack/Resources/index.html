@@ -281,6 +281,7 @@ window.hanjuLoad=state=>{if(state&&Array.isArray(state.blocks)&&!drag&&!saveInFl
   S.blocks.filter(b=>b.done&&!was.has(b.id)&&b.date===key(today())).forEach(()=>L.celebrate());applyMode();render();return true}return false};
 window.hanjuDidSave=revision=>{S._revision=revision;saveInFlight=false;if(saveQueued){saveQueued=false;save()}};
 window.hanjuSaveRejected=()=>{saveInFlight=false;saveQueued=false};
+window.hanjuSetLesser=on=>{on=!!on;if(S.lesser===on)return;S.lesser=on;save();applyMode()};
 window.hanjuSetMascot=c=>{S.mascot=c==='passion'?'passion':'planner';save();L.redraw()};
 
 $('f').addEventListener('submit',e=>{
