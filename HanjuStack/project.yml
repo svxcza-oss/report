@@ -53,6 +53,7 @@ targets:
         LSApplicationCategoryType: public.app-category.productivity
         NSHighResolutionCapable: true
         HanjuAppGroup: $(HANJU_APP_GROUP)
+        HanjuCloudSync: true
         CFBundleURLTypes:
           - CFBundleURLName: Hanju
             CFBundleURLSchemes: [hanju]
@@ -64,6 +65,8 @@ targets:
         com.apple.security.files.user-selected.read-write: true
         # WKWebView의 웹 콘텐츠 프로세스는 샌드박스에서 이 권한이 없으면 빈 화면이 돼요. 페이지는 로컬 파일만 열고 외부 주소는 막아요.
         com.apple.security.network.client: true
+        # 맥 ↔ 아이폰 계획 동기화 (iCloud 키-값 저장소, 맥·iOS가 같은 번들 ID라 같은 저장소)
+        com.apple.developer.ubiquity-kvstore-identifier: $(TeamIdentifierPrefix)$(CFBundleIdentifier)
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(HANJU_BUNDLE_ID)
@@ -126,6 +129,7 @@ targets:
         CFBundleDisplayName: 한 주 쌓기
         LSApplicationCategoryType: public.app-category.productivity
         ITSAppUsesNonExemptEncryption: false
+        HanjuCloudSync: true
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
@@ -139,6 +143,7 @@ targets:
       path: Config/App-iOS.entitlements
       properties:
         com.apple.security.application-groups: [$(HANJU_APP_GROUP)]
+        com.apple.developer.ubiquity-kvstore-identifier: $(TeamIdentifierPrefix)$(CFBundleIdentifier)
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(HANJU_BUNDLE_ID)

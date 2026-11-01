@@ -16,7 +16,7 @@ struct HanjuApp: App {
                 .ignoresSafeArea()
                 .onOpenURL { BoardController.shared.open($0) }
                 .onChange(of: phase) { _, now in
-                    if now == .active { BoardController.shared.pull() }
+                    if now == .active { BoardController.shared.becameActive() }
                 }
         }
     }
@@ -33,6 +33,7 @@ final class BoardController: UIViewController, WKScriptMessageHandler, WKNavigat
     private var web: WKWebView!
     private var store: HanjuStore!
     private var chat: ChatBridge?
+    private var cloud: CloudSync?
     private var loaded = false
     private var pending: [String] = []
     private var lastRevision = -1
@@ -47,6 +48,12 @@ final class BoardController: UIViewController, WKScriptMessageHandler, WKNavigat
             let folder = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             store = HanjuStore(url: folder.appendingPathComponent("HanjuStack/state.json"))
         }
+        // 맥 ↔ 아이폰 iCloud 동기화: 화면을 띄우기 전에 더 새로운 쪽으로 맞춰요.
+        cloud = CloudSync(store: store)
+        cloud?.onApplied = { [weak self] in
+            self?.lastRevision = -1; self?.pull(); WidgetCenter.shared.reloadAllTimelines()
+        }
+        cloud?.start()
         initial = try? store.read()
         lastRevision = HanjuStore.revision(initial)
 
@@ -87,6 +94,7 @@ final class BoardController: UIViewController, WKScriptMessageHandler, WKNavigat
         do {
             let saved = try store.update(expected: HanjuStore.revision(state)) { _ in state }
             lastRevision = HanjuStore.revision(saved)
+            cloud?.push(saved)
             run("window.hanjuDidSave && window.hanjuDidSave(\(lastRevision))")
             WidgetCenter.shared.reloadAllTimelines()
         } catch {
@@ -97,10 +105,17 @@ final class BoardController: UIViewController, WKScriptMessageHandler, WKNavigat
         }
     }
 
+    func becameActive() {
+        cloud?.reconcile()
+        pull()
+    }
+
     func pull() {
         guard loaded, let store, let state = try? store.read() else { return }
         let revision = HanjuStore.revision(state)
-        guard revision != lastRevision,
+        guard revision != lastRevision else { return }
+        cloud?.localChanged(state)   // 위젯에서 바뀐 것도 맥으로
+        guard
               let data = try? JSONSerialization.data(withJSONObject: state, options: [.sortedKeys]),
               let text = String(data: data, encoding: .utf8) else { return }
         web.evaluateJavaScript("window.hanjuLoad && window.hanjuLoad(\(text))") { [weak self] value, error in
@@ -120,7 +135,12 @@ final class BoardController: UIViewController, WKScriptMessageHandler, WKNavigat
 
     // hanju://day/2026-11-02 (위젯의 요일 이름) → 그 주를 보여줘요.
     func open(_ url: URL) {
-        guard url.scheme == "hanju", url.host == "day" else { return }
+        guard url.scheme == "hanju" else { return }
+        if url.host == "todo" {   // 위젯의 + : 할 일 입력칸으로
+            run("window.hanjuAddTodo && window.hanjuAddTodo('\(url.lastPathComponent == "week" ? "week" : "day")')")
+            return
+        }
+        guard url.host == "day" else { return }
         let day = url.lastPathComponent
         if day.range(of: "^\\d{4}-\\d{2}-\\d{2}$", options: .regularExpression) != nil {
             run("window.hanjuShowDate && window.hanjuShowDate('\(day)')")

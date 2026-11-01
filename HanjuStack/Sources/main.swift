@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     var lastRevision = -1
     var store: HanjuStore!
     var chat: ChatBridge?
+    var cloud: CloudSync?
     var watcher: Timer?
     var clockTimer: Timer?
     lazy var lesser = MenuBarLesser()
@@ -23,7 +24,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let initial: [String: Any]?
-        do { store = try HanjuStore.production(); initial = try store.read(); lastRevision = HanjuStore.revision(initial) }
+        do {
+            store = try HanjuStore.production()
+            // 맥 ↔ 아이폰 iCloud 동기화: 화면을 띄우기 전에 더 새로운 쪽으로 맞춰요.
+            cloud = CloudSync(store: store)
+            cloud?.onApplied = { [weak self] in
+                self?.lastRevision = -1; self?.pullFromWidget(); WidgetCenter.shared.reloadAllTimelines()
+            }
+            cloud?.start()
+            initial = try store.read(); lastRevision = HanjuStore.revision(initial)
+        }
         catch { NSAlert(error: error).runModal(); NSApp.terminate(nil); return }
         uiLanguage = HanjuLanguage.resolve(initial?["language"]); buildMenu()
 
@@ -117,6 +127,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         do {
             let saved = try store.update(expected: HanjuStore.revision(state)) { _ in state }
             lastRevision = HanjuStore.revision(saved)
+            cloud?.push(saved)
             run("window.hanjuDidSave && window.hanjuDidSave(\(lastRevision))")
             WidgetCenter.shared.reloadAllTimelines(); refreshLesser()
         } catch {
@@ -130,6 +141,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
             guard let state = try store.read() else { return }
             let revision = HanjuStore.revision(state)
             guard revision != lastRevision else { return }
+            cloud?.localChanged(state)   // 위젯에서 바뀐 것도 아이폰으로
             let data = try JSONSerialization.data(withJSONObject: state, options: [.sortedKeys])
             guard let text = String(data: data, encoding: .utf8) else { return }
             guard loaded else { return }
@@ -223,7 +235,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
 
     // hanju://day/2026-10-29 (a weekday name in the widget) opens that week.
     func application(_ application: NSApplication, open urls: [URL]) {
-        guard let url = urls.first, url.scheme == "hanju", url.host == "day" else { return }
+        guard let url = urls.first, url.scheme == "hanju" else { return }
+        if url.host == "todo" {   // 위젯의 + : 할 일 입력칸으로
+            showWindow()
+            run("window.hanjuAddTodo && window.hanjuAddTodo('\(url.lastPathComponent == "week" ? "week" : "day")')")
+            return
+        }
+        guard url.host == "day" else { return }
         showWindow()
         let day = url.lastPathComponent
         if day.range(of: "^\\d{4}-\\d{2}-\\d{2}$", options: .regularExpression) != nil {
@@ -236,7 +254,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    func applicationDidBecomeActive(_ notification: Notification) { pullFromWidget() }
+    func applicationDidBecomeActive(_ notification: Notification) { cloud?.reconcile(); pullFromWidget() }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { showWindow(); return true }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 }

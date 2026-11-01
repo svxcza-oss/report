@@ -49,6 +49,15 @@ open /Applications/HanjuStack.app
 - 켜고 끄기는 하나로 묶여 있어요: 앱 아래 **레서 숨기기/보이기**를 누르면 바탕화면 레서도 같이 숨거나 나오고, 상단바에서 "끄기"를 고르면 앱 안 레서도 같이 숨어요. 바탕화면/모든 창 위 위치는 끈 동안에도 기억해요.
 - 절전 모드는 어두운 화면이에요. 레서는 그대로 움직이고, 위젯도 같은 모드로 바뀌어요.
 
+## 오늘·이번 주 할 일
+
+시간을 정하지 않는 체크리스트예요. 판 아래에 두 목록이 있어요.
+
+- **오늘 할 일**: 매일 하는 것 (물 2L, 스트레칭…). 날짜가 바뀌면 체크가 새로 시작돼요.
+- **이번 주 할 일**: 이번 주 안에 할 것 (장보기, 빨래…). 월요일마다 체크가 새로 시작돼요.
+- 입력칸에 쓰고 Enter로 추가, 글자를 눌러서 고치기(비우면 삭제), ✕로 지우기. **체크하면 아래로** 내려가요.
+- 위젯 **오늘·이번 주 할 일**: 네모를 누르면 앱을 열지 않고 바로 체크돼요. **+** 를 누르면 앱이 열리면서 그 목록 입력칸에 바로 커서가 가요 (위젯 안에서는 글자를 입력할 수 없어서예요).
+
 ## 레서와 대화
 
 레서를 누르면 말풍선 대화창이 열려요. "오늘 뭐 남았어?", "내일 오후 3시에 운동 1시간 넣어줘", "PCCP 완료로 해줘"처럼 말하면 레서가 실제로 블록을 보고·쌓고·체크·옮겨요.
@@ -59,7 +68,9 @@ open /Applications/HanjuStack.app
 2. **Apple 기기 안 모델** — macOS 26 / iOS 26 이상, Apple Intelligence가 켜진 기기(M1 이상 맥, 최신 아이폰)에서 무료·오프라인으로 대화해요.
 3. **대본 레서** — 둘 다 안 되면 오늘 계획을 보고 정해진 말로 대답해요 (인텔 맥, 브라우저).
 
-어느 AI든 같은 도구(`list_blocks`, `add_block`, `set_done`, `move_block`)로 계획을 다뤄요. 도구는 페이지의 `window.hanjuTool`이 실행해요 (`AppShared/LesserChat.swift`, `AppShared/ChatBridge.swift`).
+**계획 코치**: "내 계획 분석해줘", "요즘 어때?", "다음 주 계획 같이 세워줘"라고 하면 최근 4주 기록으로 일마다 몇 번·몇 시간 했는지, 요일·시간대별 분포, 완료율, 너무 몰린 날, 자주 못 끝내는 일을 보고 조언해요. 기간 계획을 말하면 블록 목록을 먼저 제안하고, 좋다고 하면 쌓아요.
+
+어느 AI든 같은 도구(`list_blocks`, `add_block`, `set_done`, `move_block`, `list_todos`, `add_todo`, `check_todo`, `plan_stats`)로 계획을 다뤄요. 도구는 페이지의 `window.hanjuTool`이 실행해요 (`AppShared/LesserChat.swift`, `AppShared/ChatBridge.swift`).
 
 ## 아이폰·아이패드
 
@@ -67,7 +78,11 @@ open /Applications/HanjuStack.app
 
 - 내 아이폰에서 실행: `xcodegen generate` → `open HanjuStack.xcodeproj` → 위쪽에서 **HanjuStackiOS** 와 연결한 아이폰을 고르고 ▶︎ (처음엔 아이폰 설정 → 개인정보 보호 및 보안 → **개발자 모드** 켜기)
 - 앱스토어/TestFlight: `./scripts/archive-ios.sh` → Organizer에서 Validate → Distribute
-- 맥과 아이폰 사이 계획 동기화(iCloud)는 아직 없어요. 지금은 기기마다 따로 저장돼요.
+- **맥 ↔ 아이폰 동기화**: 같은 Apple ID로 로그인한 기기끼리 iCloud로 계획이 맞춰져요 (서버 없음, `AppShared/CloudSync.swift`). 맥·iOS 앱의 번들 ID가 같아서 같은 iCloud 키-값 저장소를 써요. 보통 몇 초~1분 안에 반영돼요.
+  - 더 나중에 바뀐 기기의 계획을 따라가요. 두 기기에서 거의 동시에 고치면 나중 것이 남고, 덮이기 전 계획은 `before-cloud-*.json`으로 백업돼요.
+  - 처음 설치한 기기의 예시 블록은 올리지 않아서, 다른 기기의 진짜 계획을 덮지 않아요.
+  - 앱스토어 서명판(`build.sh`, archive)에서만 켜져요. GitHub 개인용 다운로드판은 동기화하지 않아요.
+  - 처음 서명할 때 iCloud 권한이 없다는 에러가 나면: developer.apple.com → Identifiers → `com.svxcza.hanjustack` → **iCloud** 켜기 (Key-value storage).
 
 ## 블록 만들기
 

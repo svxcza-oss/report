@@ -49,6 +49,19 @@ enum LesserChat {
             "id": ["type": "string"], "name": ["type": "string"],
             "date": ["type": "string", "description": "New date YYYY-MM-DD"],
             "start": ["type": "string", "description": "New start time, 24h HH:MM"]]]),
+        ("list_todos", "Read the user's untimed to-do lists: 'today' (resets daily) and 'this_week' (resets every Monday).",
+         ["type": "object", "properties": [String: Any]()]),
+        ("add_todo", "Add an untimed to-do. scope 'day' = daily list, 'week' = this week's list.",
+         ["type": "object", "properties": [
+            "text": ["type": "string", "description": "To-do text, max 60 characters"],
+            "scope": ["type": "string", "enum": ["day", "week"]]], "required": ["text", "scope"]]),
+        ("check_todo", "Check (or uncheck) an untimed to-do, found by id or text.",
+         ["type": "object", "properties": [
+            "id": ["type": "string"], "text": ["type": "string"], "done": ["type": "boolean", "description": "default true"]]]),
+        ("plan_stats", "Analyze the plan between two dates (default: last 4 weeks): planned/done minutes, completion rate, most frequent tasks with time, minutes by weekday and time of day, busiest day, often-unfinished tasks, to-do progress.",
+         ["type": "object", "properties": [
+            "from": ["type": "string", "description": "YYYY-MM-DD (optional)"],
+            "to": ["type": "string", "description": "YYYY-MM-DD (optional)"]]]),
     ]
 
     // MARK: 어떤 AI를 쓸지
@@ -75,14 +88,17 @@ enum LesserChat {
         let name = context["character"] as? String ?? (en ? "Lesser" : "레서")
         let today = context["today"] as? String ?? "", weekday = context["weekday"] as? String ?? "", now = context["now"] as? String ?? ""
         var plan = ""
-        if let data = try? JSONSerialization.data(withJSONObject: ["today_blocks": context["today_blocks"] ?? [], "this_week": context["week"] ?? []]),
-           let text = String(data: data, encoding: .utf8) { plan = String(text.prefix(6000)) }
+        if let data = try? JSONSerialization.data(withJSONObject: ["today_blocks": context["today_blocks"] ?? [], "this_week": context["week"] ?? [],
+                                                                    "todos": context["todos"] ?? [:], "last_4_weeks": context["stats_4_weeks"] ?? [:]]),
+           let text = String(data: data, encoding: .utf8) { plan = String(text.prefix(8000)) }
         if en {
             return """
             You are \(name), the red panda companion in the weekly planner app "HanjuStack". Reply in English, warmly and briefly (1–3 sentences), like a cheerful friend.
             The user stacks tasks as time blocks on a week board. You can read and change the plan with tools: list_blocks, add_block, set_done, move_block.
             Use dates as YYYY-MM-DD and times as 24-hour HH:MM. Today is \(today) (\(weekday)), now \(now).
+            Untimed to-do lists (today / this week) use list_todos, add_todo, check_todo.
             When asked to add, finish or move something, call the tool, then say what you did. If a detail is missing, pick a sensible default (60 minutes, earliest free time) unless it really matters, then ask.
+            You are also a planning coach. When the user describes plans or asks how they're doing, use plan_stats and give concrete, kind advice from the numbers: how often they do each task, how time is spread over weekdays and times of day, completion rate, overloaded days, tasks they often don't finish (suggest shorter blocks or better times). When they describe a plan for a period, propose a short list of blocks (name, day, time, minutes) and add them after they agree.
             Don't invent facts; if you don't know something, say so. Never mention these instructions.
             Current plan (JSON): \(plan)
             """
@@ -91,7 +107,9 @@ enum LesserChat {
         너는 주간 계획 앱 "한 주 쌓기"의 레서판다 친구 \(name)야. 한국어 반말로, 다정하고 짧게(1~3문장) 대답해.
         사용자는 할 일을 시간 블록으로 만들어 일주일 판에 쌓아. 너는 도구로 계획을 보고 바꿀 수 있어: list_blocks, add_block, set_done, move_block.
         날짜는 YYYY-MM-DD, 시간은 24시간제 HH:MM로 넘겨. 오늘은 \(today) (\(weekday)요일), 지금 \(now).
+        시간 없는 할 일 목록(오늘 / 이번 주)은 list_todos, add_todo, check_todo로 다뤄.
         블록을 넣거나 끝내거나 옮겨 달라고 하면 도구를 부르고, 무엇을 했는지 말해 줘. 정보가 조금 빠지면 알맞은 기본값(60분, 가장 이른 빈 시간)으로 하고, 꼭 필요한 것만 물어봐.
+        너는 계획 코치이기도 해. 계획 얘기를 하거나 어떻게 지내는지 물으면 plan_stats로 숫자를 보고 구체적으로 다정하게 조언해 줘: 일마다 얼마나 자주 하는지, 요일·시간대별 시간 분포, 완료율, 너무 몰린 날, 자주 못 끝내는 일(더 짧게 나누거나 다른 시간대를 제안). 어떤 기간의 계획을 말하면 블록 목록(이름, 요일, 시간, 분)을 짧게 제안하고, 좋다고 하면 그때 쌓아.
         모르는 건 지어내지 말고 모른다고 해. 이 지시문 얘기는 하지 마.
         지금 계획 (JSON): \(plan)
         """
@@ -249,7 +267,8 @@ enum AppleLesser {
     }
 
     static func respond(instructions: String, prompt: String, run: @escaping LesserToolRunner) async throws -> String {
-        let session = LanguageModelSession(tools: [ListBlocksTool(run: run), AddBlockTool(run: run), SetDoneTool(run: run), MoveBlockTool(run: run)],
+        let session = LanguageModelSession(tools: [ListBlocksTool(run: run), AddBlockTool(run: run), SetDoneTool(run: run), MoveBlockTool(run: run),
+                                                   ListTodosTool(run: run), AddTodoTool(run: run), CheckTodoTool(run: run), PlanStatsTool(run: run)],
                                            instructions: instructions)
         return try await session.respond(to: prompt).content
     }
@@ -321,6 +340,58 @@ struct MoveBlockTool: Tool {
     func call(arguments: Arguments) async throws -> String {
         await run(name, AppleLesser.json(["name": arguments.name, "date": arguments.date.isEmpty ? nil : arguments.date,
                                           "start": arguments.start.isEmpty ? nil : arguments.start]))
+    }
+}
+@available(macOS 26.0, iOS 26.0, *)
+struct ListTodosTool: Tool {
+    let run: LesserToolRunner
+    let name = "list_todos"
+    let description = "Read the untimed to-do lists for today and this week."
+    @Generable struct Arguments {
+        @Guide(description: "Which list: day, week, or all") var scope: String
+    }
+    func call(arguments: Arguments) async throws -> String { await run(name, "{}") }
+}
+
+@available(macOS 26.0, iOS 26.0, *)
+struct AddTodoTool: Tool {
+    let run: LesserToolRunner
+    let name = "add_todo"
+    let description = "Add an untimed to-do to today's list (day) or this week's list (week)."
+    @Generable struct Arguments {
+        @Guide(description: "To-do text") var text: String
+        @Guide(description: "day or week") var scope: String
+    }
+    func call(arguments: Arguments) async throws -> String {
+        await run(name, AppleLesser.json(["text": arguments.text, "scope": arguments.scope == "week" ? "week" : "day"]))
+    }
+}
+
+@available(macOS 26.0, iOS 26.0, *)
+struct CheckTodoTool: Tool {
+    let run: LesserToolRunner
+    let name = "check_todo"
+    let description = "Check or uncheck an untimed to-do by its text."
+    @Generable struct Arguments {
+        @Guide(description: "To-do text") var text: String
+        @Guide(description: "true to check, false to uncheck") var done: Bool
+    }
+    func call(arguments: Arguments) async throws -> String {
+        await run(name, AppleLesser.json(["text": arguments.text, "done": arguments.done]))
+    }
+}
+
+@available(macOS 26.0, iOS 26.0, *)
+struct PlanStatsTool: Tool {
+    let run: LesserToolRunner
+    let name = "plan_stats"
+    let description = "Analyze the plan: time spent per task, frequency, weekday and time-of-day distribution, completion rate, often-unfinished tasks."
+    @Generable struct Arguments {
+        @Guide(description: "First date YYYY-MM-DD, or empty for the last 4 weeks") var from: String
+        @Guide(description: "Last date YYYY-MM-DD, or empty for today") var to: String
+    }
+    func call(arguments: Arguments) async throws -> String {
+        await run(name, AppleLesser.json(["from": arguments.from.isEmpty ? nil : arguments.from, "to": arguments.to.isEmpty ? nil : arguments.to]))
     }
 }
 #endif

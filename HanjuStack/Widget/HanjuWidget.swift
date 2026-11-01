@@ -32,7 +32,21 @@ struct DayRange {
     var slots: Int { max(1, last - first) }
 }
 
+/// 시간 없는 공통 할 일. scope "day" 는 매일, "week" 는 월요일마다 체크가 새로 시작돼요.
+struct Todo: Identifiable {
+    let id: String
+    let text: String
+    let scope: String
+    let doneOn: String?
+    func done(at date: Date) -> Bool { doneOn != nil && doneOn == todoPeriod(scope, date) }
+}
+
+func todoPeriod(_ scope: String, _ date: Date) -> String {
+    scope == "week" ? dayKey(weekDates(of: date)[0]) : dayKey(date)
+}
+
 struct Board {
+    var todos: [Todo] = []
     var blocks: [Block] = []
     var range = DayRange()
     var language = HanjuLanguage.system
@@ -95,6 +109,10 @@ func loadBoard() -> Board {
                      start: max(0, int(r["start"], 0) + shift) * factor, done: (r["done"] as? NSNumber)?.boolValue ?? false)
     }
     board.blocks = weekly + dated
+    board.todos = ((root["todos"] as? [[String: Any]]) ?? []).compactMap { r in
+        guard let id = r["id"] as? String, let text = r["text"] as? String else { return nil }
+        return Todo(id: id, text: text, scope: r["scope"] as? String == "week" ? "week" : "day", doneOn: r["doneOn"] as? String)
+    }
     return board
 }
 
@@ -162,6 +180,29 @@ struct ToggleBlockIntent: AppIntent {
                 blocks[i]["done"] = !((blocks[i]["done"] as? NSNumber)?.boolValue ?? false)
             }
         }
+        return .result()
+    }
+}
+
+struct ToggleTodoIntent: AppIntent {
+    static let title: LocalizedStringResource = "할 일 체크 바꾸기"
+    @Parameter(title: "할 일") var todoID: String
+    init() {}
+    init(todoID: String) { self.todoID = todoID }
+    func perform() async throws -> some IntentResult {
+        let id = todoID, now = Date()
+        let store = try HanjuStore.production()
+        try store.update { current in
+            guard var root = current else { throw HanjuStore.StoreError.invalidData }
+            var todos = root["todos"] as? [[String: Any]] ?? []
+            if let i = todos.firstIndex(where: { ($0["id"] as? String) == id }) {
+                let period = todoPeriod(todos[i]["scope"] as? String == "week" ? "week" : "day", now)
+                if todos[i]["doneOn"] as? String == period { todos[i]["doneOn"] = NSNull() } else { todos[i]["doneOn"] = period }
+            }
+            root["todos"] = todos
+            return root
+        }
+        WidgetCenter.shared.reloadAllTimelines()
         return .result()
     }
 }
@@ -520,7 +561,7 @@ struct TodoListView: View {
         let todayKey = dayKey(entry.date)
         let todos = entry.board.blocks
             .filter { !$0.fixed && keys.contains($0.date) }
-            .sorted { ($0.date, $0.start) < ($1.date, $1.start) }
+            .sorted { ($0.done ? 1 : 0, $0.date, $0.start) < ($1.done ? 1 : 0, $1.date, $1.start) }   // 체크한 건 아래로
         let cols = family == .systemLarge ? 1 : 2
         let perCol = family == .systemMedium ? 4 : family == .systemSmall ? 4 : 11
         let room = cols * perCol
@@ -560,7 +601,105 @@ struct TodoListView: View {
     }
 }
 
+// MARK: - 공통 할 일 (오늘 / 이번 주) — 체크는 바로, 추가는 + 로 앱의 입력칸 열기
+
+struct TodoRow: View {
+    let todo: Todo
+    let done: Bool
+    let size: CGFloat
+    var body: some View {
+        Button(intent: ToggleTodoIntent(todoID: todo.id)) {
+            HStack(spacing: 6) {
+                Image(systemName: done ? "checkmark.square.fill" : "square")
+                    .font(.system(size: size + 3))
+                    .foregroundStyle(done ? Color.secondary : Color.accentColor)
+                Text(todo.text).font(wf(size, .semibold)).lineLimit(1)
+                    .strikethrough(done)
+                    .foregroundStyle(done ? Color.secondary : Color.primary)
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .invalidatableContent()
+    }
+}
+
+struct TodoSection: View {
+    let scope: String
+    let entry: Entry
+    let limit: Int
+    let size: CGFloat
+    var body: some View {
+        let en = entry.board.language == "en"
+        let all = entry.board.todos.filter { $0.scope == scope }
+        let open = all.filter { !$0.done(at: entry.date) }, closed = all.filter { $0.done(at: entry.date) }
+        let ordered = open + closed
+        let shown = ordered.count > limit ? Array(ordered.prefix(max(1, limit - 1))) : ordered
+        return VStack(alignment: .leading, spacing: 5) {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(scope == "week" ? (en ? "This week" : "이번 주 할 일") : (en ? "Today" : "오늘 할 일")).font(wf(size + 1, .heavy))
+                Text("\(closed.count)/\(all.count)").font(wf(size - 2)).monospacedDigit().foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+                Link(destination: URL(string: "hanju://todo/\(scope)")!) {
+                    Image(systemName: "plus.circle.fill").font(.system(size: size + 5)).foregroundStyle(Color.accentColor)
+                }
+                .accessibilityLabel(en ? "Add" : "추가")
+            }
+            if all.isEmpty {
+                Text(en ? "Tap + to add" : "+ 를 눌러 추가해요").font(wf(size - 1)).foregroundStyle(.secondary)
+            } else {
+                ForEach(shown) { TodoRow(todo: $0, done: $0.done(at: entry.date), size: size) }
+                if ordered.count > shown.count {
+                    Text(en ? "+ \(ordered.count - shown.count) more" : "+ \(ordered.count - shown.count)개 더").font(wf(size - 2)).foregroundStyle(.secondary)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+}
+
+struct CommonTodoView: View {
+    let entry: Entry
+    @Environment(\.widgetFamily) var family
+    var body: some View {
+        Group {
+            switch family {
+            case .systemSmall:
+                TodoSection(scope: "day", entry: entry, limit: 4, size: 11)
+            case .systemMedium:
+                HStack(alignment: .top, spacing: 14) {
+                    TodoSection(scope: "day", entry: entry, limit: 4, size: 11)
+                    TodoSection(scope: "week", entry: entry, limit: 4, size: 11)
+                }
+            case .systemLarge:
+                VStack(alignment: .leading, spacing: 12) {
+                    TodoSection(scope: "day", entry: entry, limit: 7, size: 12)
+                    TodoSection(scope: "week", entry: entry, limit: 6, size: 12)
+                }
+            default:
+                HStack(alignment: .top, spacing: 18) {
+                    TodoSection(scope: "day", entry: entry, limit: 12, size: 12)
+                    TodoSection(scope: "week", entry: entry, limit: 12, size: 12)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .boardLook(entry.board)
+    }
+}
+
 // MARK: - 위젯 등록
+
+struct HanjuCommonTodoWidget: Widget {
+    let kind = "HanjuTodo"
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: Provider()) { CommonTodoView(entry: $0) }
+            .configurationDisplayName("오늘·이번 주 할 일")
+            .description("시간 없는 할 일 체크리스트. 네모를 누르면 바로 체크되고 아래로 내려가요. + 를 누르면 바로 추가할 수 있어요.")
+            .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge])
+    }
+}
 
 struct HanjuListWidget: Widget {
     let kind = "HanjuList"
@@ -598,5 +737,6 @@ struct HanjuWidgets: WidgetBundle {
         HanjuWeekWidget()
         HanjuDayWidget()
         HanjuListWidget()
+        HanjuCommonTodoWidget()
     }
 }
