@@ -2,6 +2,7 @@ name: HanjuStack
 options:
   deploymentTarget:
     macOS: "14.0"
+    iOS: "17.0"
 configFiles:
   Debug: Config/Signing.xcconfig
   Release: Config/Signing.xcconfig
@@ -20,6 +21,12 @@ schemes:
         HanjuStack: all
     archive:
       config: Release
+  HanjuStackiOS:
+    build:
+      targets:
+        HanjuStackiOS: all
+    archive:
+      config: Release
 targets:
   HanjuStack:
     type: application
@@ -27,6 +34,7 @@ targets:
     sources:
       - path: Sources
       - path: Shared
+      - path: AppShared
       - path: Resources/index.html
       - path: Resources/en.lproj
         type: folder
@@ -91,3 +99,83 @@ targets:
         PRODUCT_NAME: HanjuWidget
         APPLICATION_EXTENSION_API_ONLY: YES
         SKIP_INSTALL: YES
+
+  # ---------- iPhone / iPad ----------
+  # 맥과 같은 번들 ID를 써서 앱스토어에서 한 앱(맥 + iOS)으로 묶을 수 있어요.
+  HanjuStackiOS:
+    type: application
+    platform: iOS
+    sources:
+      - path: iOS
+      - path: Shared
+      - path: AppShared
+      - path: Resources/index.html
+      - path: Resources/en.lproj
+        type: folder
+      - path: Resources/ko.lproj
+        type: folder
+      - path: Resources/PrivacyInfo.xcprivacy
+      - path: Resources/Mascots
+        type: folder
+      - path: Resources/Fonts
+        type: folder
+      - path: Resources/Assets-iOS.xcassets
+    info:
+      path: Generated/iOS-Info.plist
+      properties:
+        CFBundleDisplayName: 한 주 쌓기
+        LSApplicationCategoryType: public.app-category.productivity
+        ITSAppUsesNonExemptEncryption: false
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        HanjuAppGroup: $(HANJU_APP_GROUP)
+        CFBundleURLTypes:
+          - CFBundleURLName: Hanju
+            CFBundleURLSchemes: [hanju]
+    entitlements:
+      path: Config/App-iOS.entitlements
+      properties:
+        com.apple.security.application-groups: [$(HANJU_APP_GROUP)]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(HANJU_BUNDLE_ID)
+        PRODUCT_NAME: HanjuStack
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ENABLE_APP_SANDBOX: NO
+        ENABLE_HARDENED_RUNTIME: NO
+    dependencies:
+      - target: HanjuWidgetiOS
+        embed: true
+  HanjuWidgetiOS:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Widget
+        excludes: [entitlements.plist]
+      - path: Shared
+      - path: Resources/Fonts
+        type: folder
+    info:
+      path: Generated/Widget-iOS-Info.plist
+      properties:
+        CFBundleDisplayName: 한 주 쌓기
+        HanjuAppGroup: $(HANJU_APP_GROUP)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Config/Widget-iOS.entitlements
+      properties:
+        com.apple.security.application-groups: [$(HANJU_APP_GROUP)]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(HANJU_BUNDLE_ID).widget
+        PRODUCT_NAME: HanjuWidget
+        TARGETED_DEVICE_FAMILY: "1,2"
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+        ENABLE_APP_SANDBOX: NO
+        ENABLE_HARDENED_RUNTIME: NO

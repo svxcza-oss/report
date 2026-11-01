@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     func text(_ ko: String, _ en: String) -> String { HanjuLanguage.text(ko, en, language: uiLanguage) }
     var lastRevision = -1
     var store: HanjuStore!
+    var chat: ChatBridge?
     var watcher: Timer?
     var clockTimer: Timer?
     lazy var lesser = MenuBarLesser()
@@ -50,6 +51,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
                                                                 injectionTime: .atDocumentStart, forMainFrameOnly: true))
         web = WKWebView(frame: .zero, configuration: config)
         web.navigationDelegate = self
+        chat = ChatBridge(web: web)
         web.underPageBackgroundColor = .clear
         web.translatesAutoresizingMaskIntoConstraints = false
         frost.addSubview(web)
@@ -108,8 +110,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
 
     // Reject stale whole-board writes instead of overwriting newer widget edits.
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
-        guard message.frameInfo.isMainFrame,
-              let body = message.body as? [String: Any], body["action"] as? String == "save",
+        guard message.frameInfo.isMainFrame else { return }
+        if let body = message.body as? [String: Any], chat?.handle(body) == true { return }   // 레서 채팅
+        guard let body = message.body as? [String: Any], body["action"] as? String == "save",
               let state = body["state"] as? [String: Any] else { return }
         do {
             let saved = try store.update(expected: HanjuStore.revision(state)) { _ in state }

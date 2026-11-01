@@ -14,7 +14,7 @@ assert not any(k.startswith('com.apple.security.network') for k in widget)
 for path in ['Resources/PrivacyInfo.xcprivacy','Widget/PrivacyInfo.xcprivacy']:
  d=plistlib.loads((root/path).read_bytes());assert d['NSPrivacyTracking'] is False and not d['NSPrivacyCollectedDataTypes']
 project=(root/'project.yml').read_text()
-assert project.count('path: Shared')==2 and project.count('HanjuAppGroup: $(HANJU_APP_GROUP)')==2
+assert project.count('path: Shared')>=2 and project.count('HanjuAppGroup: $(HANJU_APP_GROUP)')>=2
 assert 'CODE_SIGN_IDENTITY: "-"' not in project and 'ENABLE_HARDENED_RUNTIME: YES' in project
 main=(root/'Sources/main.swift').read_text()
 assert 'Library/Containers/' not in main and 'modificationDate' not in main and 'setValue(false, forKey:' not in main

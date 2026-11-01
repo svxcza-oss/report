@@ -1,0 +1,50 @@
+# 한 주 쌓기: 브랜치에 올릴 때마다 맥 앱과 iOS 앱이 컴파일되는지 확인해요 (서명·업로드 없음).
+name: 한 주 쌓기 빌드 확인
+on:
+  push:
+    branches: ['claude/**']
+    paths: ['HanjuStack/**', '.github/workflows/hanju-check.yml']
+  pull_request:
+    paths: ['HanjuStack/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: hanju-check-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  check:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: 가장 최신 Xcode 고르기 (Apple 기기 안 모델용 SDK)
+        run: |
+          x=$(ls -d /Applications/Xcode_*.app | grep -vi beta | sort -V | tail -1)
+          sudo xcode-select -s "$x"
+          xcodebuild -version
+      - name: XcodeGen 설치
+        run: brew install xcodegen
+      - name: 소스 검사
+        working-directory: HanjuStack
+        run: |
+          python3 scripts/check-config.py
+          node tests/time-migration.cjs
+          node tests/save-queue.cjs
+      - name: 맥 개인용 빌드
+        working-directory: HanjuStack
+        run: ./build-local.sh
+      - name: 맥 앱스토어 설정 컴파일 (서명 없이)
+        working-directory: HanjuStack
+        run: |
+          set -o pipefail
+          xcodegen generate --quiet
+          xcodebuild -project HanjuStack.xcodeproj -scheme HanjuStack -configuration Debug \
+            -destination 'generic/platform=macOS' -derivedDataPath build/check-mac CODE_SIGNING_ALLOWED=NO build 2>&1 | grep -E "error|warning: .*(deprecated|unavailable)|BUILD" || true
+          test -d build/check-mac/Build/Products/Debug/HanjuStack.app
+      - name: iOS 컴파일 (시뮬레이터, 서명 없이)
+        working-directory: HanjuStack
+        run: |
+          set -o pipefail
+          xcodebuild -project HanjuStack.xcodeproj -scheme HanjuStackiOS -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build/check-ios CODE_SIGNING_ALLOWED=NO build 2>&1 | grep -E "error|BUILD" || true
+          test -d build/check-ios/Build/Products/Debug-iphonesimulator/HanjuStack.app

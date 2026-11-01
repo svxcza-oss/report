@@ -1,6 +1,8 @@
 import SwiftUI
 import WidgetKit
+#if os(macOS)
 import AppKit
+#endif
 import AppIntents
 import CoreText
 
