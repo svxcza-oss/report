@@ -68,13 +68,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
 
         lesser.onOpen = { [weak self] in self?.showWindow() }
         lesser.onCharacter = { [weak self] c in self?.run("window.hanjuSetMascot && window.hanjuSetMascot('\(c)')") }
-        let savedPlace = DesktopLesserPlace(rawValue: UserDefaults.standard.string(forKey: "desktopLesser") ?? "") ?? .desktop
-        lesser.place = savedPlace
         walker.playback = lesser.playback
-        walker.place = savedPlace
+        // 레서 켜기/끄기는 앱 안·바탕화면이 하나로 움직여요 (저장 파일의 "lesser").
+        // 메뉴 막대에서 위치를 고르면 켜지고, "끄기"를 고르면 앱 안 레서도 같이 숨어요.
         lesser.onPlace = { [weak self] place in
-            UserDefaults.standard.set(place.rawValue, forKey: "desktopLesser")
-            self?.walker.place = place
+            guard let self else { return }
+            if place != .off { UserDefaults.standard.set(place.rawValue, forKey: "desktopLesser") }
+            self.applyLesserPlace(on: place != .off)
+            self.run("window.hanjuSetLesser && window.hanjuSetLesser(\(place != .off))")
         }
         refreshLesser()
         // The 레서 works while a block's time is running, so look again as the clock moves.
@@ -185,8 +186,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         lesser.character = root["mascot"] as? String == "passion" ? "passion" : "planner"
         let saver = root["theme"] as? String == "saver"
         walker.character = lesser.character
+        applyLesserPlace(on: root["lesser"] as? Bool != false)
         if root["theme"] != nil { window?.appearance = NSAppearance(named: saver ? .darkAqua : .aqua) }
         lesser.update(root)
+    }
+
+    /// 바탕화면 레서가 어디서 걷는지 (바탕화면 / 모든 창 위). 끈 동안에도 고른 위치는 기억해요.
+    var desktopSpot: DesktopLesserPlace {
+        let saved = DesktopLesserPlace(rawValue: UserDefaults.standard.string(forKey: "desktopLesser") ?? "") ?? .desktop
+        return saved == .off ? .desktop : saved
+    }
+
+    func applyLesserPlace(on: Bool) {
+        let place: DesktopLesserPlace = on ? desktopSpot : .off
+        walker.place = place
+        lesser.place = place
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
