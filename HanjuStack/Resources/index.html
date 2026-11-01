@@ -146,16 +146,25 @@ button{font:inherit;cursor:pointer;border:0;border-radius:10px}
 /* 아이폰처럼 좁은 화면: 일주일이 화면 폭·높이에 딱 맞게 */
 @media (max-width:700px){
   body{padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px));padding-block:calc(8px + env(safe-area-inset-top,0px)) calc(96px + env(safe-area-inset-bottom,0px))}
-  .wrap{gap:10px}
-  h1{font-size:20px}
+  .wrap{gap:10px;grid-template-columns:minmax(0,1fr)}
+  .todos{grid-template-columns:minmax(0,1fr)}
+  .tl,.tl form,.tl-add{min-width:0}
+  .tl-add{width:0}
+  .tl h2{flex-wrap:wrap}
+  h1{font-size:18px}
   .top{gap:6px}
-  .mode button{padding:5px 8px}
-  .week{flex-wrap:wrap;gap:3px;font-size:12px}
+  .top>div{gap:8px!important}
+  .mode button{padding:4px 8px;font-size:11px}
+  .week{flex-wrap:nowrap;gap:3px;font-size:12px;width:100%}
+  .week>select#language{display:none}
+  .week button{width:28px;height:28px}
+  .week .now{padding:0 6px;font-size:11px}
+  .hours{margin-left:auto}
   .week span{min-width:0}
   .week>select,.hours select{padding:4px;font-size:12px}
   .hours{margin-left:2px}
   form{gap:6px}
-  #name{flex-basis:100%;padding:10px 12px}
+  #name{flex-basis:100%;padding:9px 12px}
   .dur{flex:1 1 0;min-width:0;padding:3px}
   .dur button{width:28px;height:28px}
   .dur input{flex:1;width:auto;min-width:0}
@@ -164,7 +173,7 @@ button{font:inherit;cursor:pointer;border:0;border-radius:10px}
   .lesser .say{display:none}
   .scroll{overflow:visible}
   .board{min-width:0;grid-template-columns:30px repeat(7,minmax(0,1fr));column-gap:2px}
-  .dh{font-size:10px;padding-bottom:3px}
+  .dh{font-size:10px;padding-bottom:3px;line-height:1.15}
   .dh b{font-size:13px}
   .dh .clr{font-size:8px;padding:0 3px}
   .times span{font-size:8px;right:2px}
@@ -177,6 +186,7 @@ button{font:inherit;cursor:pointer;border:0;border-radius:10px}
   .lesser .say{font-size:11px;padding:3px 8px;max-width:60vw;overflow:hidden;text-overflow:ellipsis}
   .chat{right:8px;left:8px;width:auto;bottom:calc(84px + env(safe-area-inset-bottom,0px));height:min(560px,calc(100vh - 120px))}
 }
+@media (max-width:370px){.week{flex-wrap:wrap}.hours{margin-left:0}.rep label{padding:10px 6px}#add{padding:10px 10px}}
 /* 터치 기기는 16px보다 작은 입력칸을 누르면 화면이 확대돼요. 그래서 16px로 */
 @media (hover:none) and (pointer:coarse){#name,.dur input,.tl form input,.tl li input.tx,.chat form input,.chat .set input,.chat .set select,.week>select,.hours select{font-size:16px}}
 @media (prefers-reduced-motion:reduce){.blk.drop,.blk.flash{animation:none}.trash{transition:none}}
@@ -269,10 +279,13 @@ if(window.hanjuPlatform==='ios')document.querySelector('meta[name=viewport]').se
 
 let S, drag=null, wk=0, saveInFlight=false, saveQueued=false;
 const slotH=()=>parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--slot-h'))||10;
-function fitSlots(){ // 좁은 화면에서는 보이는 시간이 화면 높이에 들어가게 한 칸 높이를 줄여요
+let safeProbe=null;
+function fitSlots(){ // 좁은 화면: 일주일 판 아래 끝이 화면 아래 끝에 딱 맞게 한 칸 높이를 정해요
   const root=document.documentElement;if(innerWidth>700){root.style.removeProperty('--slot-h');return}
-  const top=board.getBoundingClientRect().top+scrollY,avail=innerHeight-Math.min(top,240)-150;
-  root.style.setProperty('--slot-h',Math.max(3.5,Math.min(10,avail/ROWS())).toFixed(2)+'px')}
+  if(!safeProbe){safeProbe=document.createElement('div');safeProbe.style.cssText='position:fixed;visibility:hidden;pointer-events:none;height:env(safe-area-inset-bottom,0px)';document.body.appendChild(safeProbe)}
+  const top=board.getBoundingClientRect().top+scrollY,head=board.querySelector('.dh')?.getBoundingClientRect().height||30;
+  const avail=innerHeight-top-head-safeProbe.getBoundingClientRect().height-10;
+  root.style.setProperty('--slot-h',Math.max(2.5,Math.min(10,avail/ROWS())).toFixed(2)+'px')}
 const at=h=>h*6; // v4: ten-minute slots from midnight
 const FROM=()=>S.range.from*6, TO=()=>S.range.to*6, ROWS=()=>TO()-FROM();
 const uid=()=>Math.random().toString(36).slice(2,9);
