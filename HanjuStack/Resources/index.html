@@ -326,7 +326,23 @@ function load(){
   try{const v=JSON.parse(localStorage.getItem(KEY));if(v&&Array.isArray(v.blocks))return migrate(v)}catch(e){}
   return migrate(sample());
 }
+/* 바뀐 항목에만 시각(u)을 찍고, 지운 항목은 deleted에 남겨요. 그래야 다른 기기·위젯과 항목 단위로 합칠 수 있어요. */
+const canon=v=>Array.isArray(v)?'['+v.map(canon).join(',')+']':v&&typeof v==='object'?'{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canon(v[k])).join(',')+'}':JSON.stringify(v);
+const SETTINGS=['theme','mascot','lesser','range','language','ai'];
+let snap=null,snapSettings=null;
+function snapshot(){const m=new Map();for(const k of ['blocks','fixed','todos'])for(const r of S[k]||[]){const {u,...rest}=r;m.set(r.id,k+canon(rest))}return m}
+function settingsSig(){return canon(Object.fromEntries(SETTINGS.map(k=>[k,S[k]])))}
+function rememberSaved(){snap=snapshot();snapSettings=settingsSig()}
+function stampChanges(){
+  if(!snap){rememberSaved();return}
+  const now=Date.now(),cur=snapshot();
+  for(const k of ['blocks','fixed','todos'])for(const r of S[k]||[])if(snap.get(r.id)!==cur.get(r.id))r.u=now;
+  for(const id of snap.keys())if(!cur.has(id)){if(!S.deleted||typeof S.deleted!=='object')S.deleted={};S.deleted[id]=now}
+  const sig=settingsSig();if(sig!==snapSettings)S._settingsAt=now;
+  rememberSaved();
+}
 function save(){
+  stampChanges();
   if(NATIVE){if(saveInFlight){saveQueued=true;return}saveInFlight=true;window.webkit.messageHandlers.native.postMessage({action:'save',state:S});return}
   try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
 }
@@ -433,7 +449,7 @@ function showDate(k){const d=new Date(k+'T00:00');if(isNaN(d))return;
   wk=Math.round((monD-monT)/(7*864e5));render()}
 window.hanjuToggle=id=>{const b=find(id);if(!b)return;showDate(b.date);toggle(id)};
 window.hanjuShowDate=showDate;
-window.hanjuLoad=state=>{if(state&&Array.isArray(state.blocks)&&!drag&&!saveInFlight){const was=new Set(S.blocks.filter(b=>b.done).map(b=>b.id));S=migrate(state);const migrated=S._m;delete S._m;if(migrated)save();
+window.hanjuLoad=state=>{if(state&&Array.isArray(state.blocks)&&!drag&&!saveInFlight){const was=new Set(S.blocks.filter(b=>b.done).map(b=>b.id));S=migrate(state);rememberSaved();const migrated=S._m;delete S._m;if(migrated)save();
   S.blocks.filter(b=>b.done&&!was.has(b.id)&&b.date===key(today())).forEach(()=>L.celebrate());applyMode();render();return true}return false};
 window.hanjuDidSave=revision=>{S._revision=revision;saveInFlight=false;if(saveQueued){saveQueued=false;save()}};
 window.hanjuSaveRejected=()=>{saveInFlight=false;saveQueued=false};
@@ -519,7 +535,7 @@ function up(){
   if(t)toast(T('다른 블록과 겹쳐요','Overlaps another block'));render();
 }
 addEventListener('resize',()=>{if(!drag)render()});
-S=load();if(S._m){delete S._m;save()}
+S=load();rememberSaved();if(S._m){delete S._m;save()}
 
 /* ---------- 화면 모드: 라이트 / 절전(어두운 화면 + 움직임 멈춤) ---------- */
 function applyMode(){

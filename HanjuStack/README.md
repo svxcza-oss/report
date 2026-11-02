@@ -78,11 +78,12 @@ open /Applications/HanjuStack.app
 
 - 내 아이폰에서 실행: `xcodegen generate` → `open HanjuStack.xcodeproj` → 위쪽에서 **HanjuStackiOS** 와 연결한 아이폰을 고르고 ▶︎ (처음엔 아이폰 설정 → 개인정보 보호 및 보안 → **개발자 모드** 켜기)
 - 앱스토어/TestFlight: `./scripts/archive-ios.sh` → Organizer에서 Validate → Distribute
-- **맥 ↔ 아이폰 동기화**: 같은 Apple ID로 로그인한 기기끼리 iCloud로 계획이 맞춰져요 (서버 없음, `AppShared/CloudSync.swift`). 맥·iOS 앱의 번들 ID가 같아서 같은 iCloud 키-값 저장소를 써요. 보통 몇 초~1분 안에 반영돼요.
-  - 더 나중에 바뀐 기기의 계획을 따라가요. 두 기기에서 거의 동시에 고치면 나중 것이 남고, 덮이기 전 계획은 `before-cloud-*.json`으로 백업돼요.
-  - 처음 설치한 기기의 예시 블록은 올리지 않아서, 다른 기기의 진짜 계획을 덮지 않아요.
-  - 앱스토어 서명판(`build.sh`, archive)에서만 켜져요. GitHub 개인용 다운로드판은 동기화하지 않아요.
-  - 처음 서명할 때 iCloud 권한이 없다는 에러가 나면: developer.apple.com → Identifiers → `com.svxcza.hanjustack` → **iCloud** 켜기 (Key-value storage).
+- **맥 ↔ 아이폰 동기화**: 같은 Apple ID로 로그인한 기기끼리 iCloud(CloudKit 비공개 데이터베이스)로 계획이 맞춰져요. 서버 없음 (`Shared/CloudPlan.swift`).
+  - **항목 단위로 합쳐요** (`Shared/PlanMerge.swift`): 블록·할 일마다 바뀐 시각을 기록해서, 두 기기에서 따로 고쳐도 서로 덮어쓰지 않아요. 지운 항목은 지운 기록으로 남아 다시 살아나지 않아요.
+  - 다른 기기에서 바꾸면 조용한 알림으로 몇 초 안에 반영되고, 앱이 켜져 있는 동안은 20초마다도 확인해요. 위젯도 체크하자마자 올리고, 새로 그릴 때 받아 와요.
+  - 맥 앱은 이미 켜져 있으면 두 번째 실행을 막고 켜져 있는 창으로 넘겨요.
+  - **처음 한 번 할 일**: developer.apple.com → Identifiers → iCloud Containers에 `iCloud.com.svxcza.hanjustack`을 만들고, 앱·위젯 App ID의 iCloud(CloudKit)에 연결. 개발용 빌드(`./build.sh`)로 한 번 실행해 기록 형식(Plan)을 만든 뒤, CloudKit Console → Schema → **Deploy Schema Changes**로 운영 환경에 배포해야 TestFlight·앱스토어판이 동기화돼요.
+  - 앱스토어 서명판에서만 켜져요. GitHub 개인용 다운로드판은 동기화하지 않아요.
 
 ## 블록 만들기
 

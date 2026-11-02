@@ -159,13 +159,23 @@ func clock(_ slot: Int, _ language: String = "ko") -> String {
 
 // MARK: - 위젯 안에서 바로 처리하는 버튼 동작 (앱을 열지 않음)
 
-func editBlocks(_ change: (inout [[String: Any]]) -> Void) throws {
+/// 저장 파일을 고치고, 바뀐 항목에 시각(u)을 찍고, 맥·아이폰으로 바로 올려요.
+func editPlan(_ change: (inout [String: Any], Double) -> Void) async throws {
     let store = try HanjuStore.production()
+    let now = PlanMerge.nowMs()
     try store.update { current in
-        guard var root = current, var blocks = root["blocks"] as? [[String: Any]] else { throw HanjuStore.StoreError.invalidData }
-        change(&blocks); root["blocks"] = blocks; return root
+        guard var root = current else { throw HanjuStore.StoreError.invalidData }
+        change(&root, now); return root
     }
     WidgetCenter.shared.reloadAllTimelines()
+    await CloudPlan.shared?.syncNow()
+}
+
+func editRow(_ list: String, _ id: String, in root: inout [String: Any], now: Double, _ change: (inout [String: Any]) -> Void) {
+    var rows = root[list] as? [[String: Any]] ?? []
+    guard let i = rows.firstIndex(where: { ($0["id"] as? String) == id }) else { return }
+    change(&rows[i]); rows[i]["u"] = now
+    root[list] = rows
 }
 
 struct ToggleBlockIntent: AppIntent {
@@ -175,10 +185,8 @@ struct ToggleBlockIntent: AppIntent {
     init(blockID: String) { self.blockID = blockID }
     func perform() async throws -> some IntentResult {
         let id = blockID
-        try editBlocks { blocks in
-            if let i = blocks.firstIndex(where: { ($0["id"] as? String) == id }) {
-                blocks[i]["done"] = !((blocks[i]["done"] as? NSNumber)?.boolValue ?? false)
-            }
+        try await editPlan { root, now in
+            editRow("blocks", id, in: &root, now: now) { $0["done"] = !(($0["done"] as? NSNumber)?.boolValue ?? false) }
         }
         return .result()
     }
@@ -190,19 +198,13 @@ struct ToggleTodoIntent: AppIntent {
     init() {}
     init(todoID: String) { self.todoID = todoID }
     func perform() async throws -> some IntentResult {
-        let id = todoID, now = Date()
-        let store = try HanjuStore.production()
-        try store.update { current in
-            guard var root = current else { throw HanjuStore.StoreError.invalidData }
-            var todos = root["todos"] as? [[String: Any]] ?? []
-            if let i = todos.firstIndex(where: { ($0["id"] as? String) == id }) {
-                let period = todoPeriod(todos[i]["scope"] as? String == "week" ? "week" : "day", now)
-                if todos[i]["doneOn"] as? String == period { todos[i]["doneOn"] = NSNull() } else { todos[i]["doneOn"] = period }
+        let id = todoID, today = Date()
+        try await editPlan { root, now in
+            editRow("todos", id, in: &root, now: now) { row in
+                let period = todoPeriod(row["scope"] as? String == "week" ? "week" : "day", today)
+                if row["doneOn"] as? String == period { row["doneOn"] = NSNull() } else { row["doneOn"] = period }
             }
-            root["todos"] = todos
-            return root
         }
-        WidgetCenter.shared.reloadAllTimelines()
         return .result()
     }
 }
@@ -214,7 +216,14 @@ struct DeleteBlockIntent: AppIntent {
     init(blockID: String) { self.blockID = blockID }
     func perform() async throws -> some IntentResult {
         let id = blockID
-        try editBlocks { blocks in blocks.removeAll { ($0["id"] as? String) == id } }
+        try await editPlan { root, now in
+            var blocks = root["blocks"] as? [[String: Any]] ?? []
+            blocks.removeAll { ($0["id"] as? String) == id }
+            root["blocks"] = blocks
+            var dead = root["deleted"] as? [String: Any] ?? [:]
+            dead[id] = now
+            root["deleted"] = dead
+        }
         return .result()
     }
 }
@@ -232,6 +241,15 @@ struct Provider: TimelineProvider {
         completion(Entry(date: Date(), board: loadBoard()))
     }
     func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> Void) {
+        // 새로 그리기 전에 다른 기기에서 바뀐 게 있으면 받아 와요 (iCloud 동기화가 켜진 앱스토어판만).
+        guard let cloud = CloudPlan.shared else { return completion(timeline()) }
+        Task {
+            await cloud.syncNow()
+            completion(timeline())
+        }
+    }
+
+    func timeline() -> Timeline<Entry> {
         let cal = Calendar.current
         let now = Date()
         let board = loadBoard()
@@ -239,7 +257,11 @@ struct Provider: TimelineProvider {
         for i in 1...7 {
             if let d = cal.date(byAdding: .day, value: i, to: cal.startOfDay(for: now)) { dates.append(d) }
         }
-        completion(Timeline(entries: dates.map { Entry(date: $0, board: board) }, policy: .atEnd))
+        // 다른 기기 변경을 놓치지 않게 30분마다도 다시 그려요 (날짜가 바뀌는 자정에도).
+        let soon = Entry(date: now.addingTimeInterval(30 * 60), board: board)
+        let entries = ([Entry(date: now, board: board), soon] + dates.dropFirst().map { Entry(date: $0, board: board) })
+            .sorted { $0.date < $1.date }
+        return Timeline(entries: entries, policy: .after(now.addingTimeInterval(30 * 60)))
     }
 }
 

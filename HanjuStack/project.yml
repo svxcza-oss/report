@@ -56,6 +56,7 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         NSHighResolutionCapable: true
         HanjuAppGroup: $(HANJU_APP_GROUP)
+        HanjuCloudContainer: $(HANJU_CLOUD_CONTAINER)
         HanjuCloudSync: true
         CFBundleURLTypes:
           - CFBundleURLName: Hanju
@@ -68,8 +69,11 @@ targets:
         com.apple.security.files.user-selected.read-write: true
         # WKWebView의 웹 콘텐츠 프로세스는 샌드박스에서 이 권한이 없으면 빈 화면이 돼요. 페이지는 로컬 파일만 열고 외부 주소는 막아요.
         com.apple.security.network.client: true
-        # 맥 ↔ 아이폰 계획 동기화 (iCloud 키-값 저장소, 맥·iOS가 같은 번들 ID라 같은 저장소)
+        # 맥 ↔ 아이폰 계획 동기화: CloudKit 비공개 DB(컨테이너 iCloud.<번들ID>) + 바뀌면 조용한 알림(aps)
         com.apple.developer.ubiquity-kvstore-identifier: $(TeamIdentifierPrefix)$(CFBundleIdentifier)
+        com.apple.developer.icloud-services: [CloudKit]
+        com.apple.developer.icloud-container-identifiers: [$(HANJU_CLOUD_CONTAINER)]
+        com.apple.developer.aps-environment: development
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(HANJU_BUNDLE_ID)
@@ -94,6 +98,8 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         HanjuAppGroup: $(HANJU_APP_GROUP)
+        HanjuCloudContainer: $(HANJU_CLOUD_CONTAINER)
+        HanjuCloudSync: true
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     entitlements:
@@ -101,6 +107,8 @@ targets:
       properties:
         com.apple.security.app-sandbox: true
         com.apple.security.application-groups: [$(HANJU_APP_GROUP)]
+        com.apple.developer.icloud-services: [CloudKit]
+        com.apple.developer.icloud-container-identifiers: [$(HANJU_CLOUD_CONTAINER)]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(HANJU_BUNDLE_ID).widget
@@ -137,12 +145,14 @@ targets:
         LSApplicationCategoryType: public.app-category.productivity
         ITSAppUsesNonExemptEncryption: false
         HanjuCloudSync: true
+        UIBackgroundModes: [remote-notification]
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         HanjuAppGroup: $(HANJU_APP_GROUP)
+        HanjuCloudContainer: $(HANJU_CLOUD_CONTAINER)
         CFBundleURLTypes:
           - CFBundleURLName: Hanju
             CFBundleURLSchemes: [hanju]
@@ -151,6 +161,9 @@ targets:
       properties:
         com.apple.security.application-groups: [$(HANJU_APP_GROUP)]
         com.apple.developer.ubiquity-kvstore-identifier: $(TeamIdentifierPrefix)$(CFBundleIdentifier)
+        com.apple.developer.icloud-services: [CloudKit]
+        com.apple.developer.icloud-container-identifiers: [$(HANJU_CLOUD_CONTAINER)]
+        aps-environment: development
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(HANJU_BUNDLE_ID)
@@ -178,12 +191,16 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         HanjuAppGroup: $(HANJU_APP_GROUP)
+        HanjuCloudContainer: $(HANJU_CLOUD_CONTAINER)
+        HanjuCloudSync: true
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     entitlements:
       path: Config/Widget-iOS.entitlements
       properties:
         com.apple.security.application-groups: [$(HANJU_APP_GROUP)]
+        com.apple.developer.icloud-services: [CloudKit]
+        com.apple.developer.icloud-container-identifiers: [$(HANJU_CLOUD_CONTAINER)]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(HANJU_BUNDLE_ID).widget
