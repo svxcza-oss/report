@@ -87,6 +87,10 @@ open /Applications/HanjuStack.app
   - **처음 한 번 할 일**: developer.apple.com → Identifiers → iCloud Containers에 `iCloud.com.svxcza.hanjustack`을 만들고, 앱·위젯 App ID의 iCloud(CloudKit)에 연결. 개발용 빌드(`./build.sh`)로 한 번 실행해 기록 형식(Plan)을 만든 뒤, CloudKit Console → Schema → **Deploy Schema Changes**로 운영 환경에 배포해야 TestFlight·앱스토어판이 동기화돼요.
   - 앱스토어 서명판에서만 켜져요. GitHub 개인용 다운로드판은 동기화하지 않아요.
 
+## 못 끝낸 블록은 다음 날로
+
+PlanLess의 이월처럼, 지난 7일 안에 완료하지 못한 블록은 다음 날(오늘)로 자동으로 넘어가요. 같은 시간이 비어 있으면 그 시간, 아니면 가장 이른 빈칸에 들어가고, 오늘이 꽉 차면 그다음 날로 가요. 넘어온 블록에는 ↪ 표시가 붙어요. 블록 id와 내용은 그대로라 맥·아이폰 동기화에서도 하나로 합쳐져요. 판 아래 **못 끝낸 블록 다음 날로: 켬/끔**으로 끌 수 있어요. 위젯은 앱을 아직 안 열었어도 같은 규칙으로 오늘에 보여줘요.
+
 ## 블록 만들기
 
 - 걸리는 시간: − / + 로 10분씩 바꾸거나, 칸에 직접 입력 (`1:30`, `90분`, `2.5`, `3`, `1시간 30분`). 위·아래 화살표 키도 돼요.

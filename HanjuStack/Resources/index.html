@@ -73,6 +73,7 @@ button{font:inherit;cursor:pointer;border:0;border-radius:10px}
 .blk.done{background-color:var(--done);--ink:#fff;color:#fff}
 .blk.fixed{background-color:var(--fixed);background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.14) 0 5px,transparent 5px 10px)}
 .blk.fixed span::before{content:"↻ "}
+.blk.carried:not(.done):not(.fixed) span::before{content:"↪ "}
 .rep input{position:absolute;opacity:0;pointer-events:none}
 .rep label{display:block;padding:11px 12px;border-radius:10px;background:var(--well);color:var(--muted);font-size:13px;cursor:pointer;white-space:nowrap}
 .rep input:checked+label{background:var(--fixed);color:#fff;font-weight:600}
@@ -234,6 +235,7 @@ button{font:inherit;cursor:pointer;border:0;border-radius:10px}
     <span>누르면 완료 · 끌어서 옮기기 · ⧉ 또는 ⌥(option) 누르고 끌면 복제 · 휴지통으로 끌면 삭제 · 회색 ↻는 매주 고정</span>
     <div class="clear">
       <span id="hidden-note"></span>
+      <button id="roll-toggle" type="button">못 끝낸 블록 다음 날로: 켬</button>
       <button id="lesser-toggle" type="button">레서 숨기기</button>
       <button id="clear" type="button">지우기</button>
       <span id="clear-opts" hidden>
@@ -316,7 +318,7 @@ function migrate(v){ // older saves kept a weekday index, and counted time from 
   if(Object.prototype.hasOwnProperty.call(v,'timeFormat')){delete v.timeFormat;v._m=true}
   if(!Array.isArray(v.todos))v.todos=[];
   if(!v.ai||typeof v.ai!=='object')v.ai={provider:'auto',models:{}};if(!['auto','apple','anthropic','openai','script'].includes(v.ai.provider))v.ai.provider='auto';if(!v.ai.models||typeof v.ai.models!=='object')v.ai.models={};
-  if(v.theme!=='saver')v.theme='light';if(v.mascot!=='passion')v.mascot='planner';if(v.lesser!==false)v.lesser=true;
+  if(v.theme!=='saver')v.theme='light';if(v.mascot!=='passion')v.mascot='planner';if(v.lesser!==false)v.lesser=true;if(v.rollover!==false)v.rollover=true;
   v.blocks.forEach(b=>{if(!b.date&&b.day!=null){b.date=w[b.day]}delete b.day});
   v.blocks=v.blocks.filter(b=>b.date);if(typeof v.n!=='number')v.n=v.blocks.length;
   v.fixed.forEach(f=>f.fixed=true);return v;
@@ -333,7 +335,7 @@ function save(){
 }
 /* 바뀐 항목에만 시각(u)을 찍고, 지운 항목은 deleted에 남겨요. 그래야 다른 기기·위젯과 항목 단위로 합칠 수 있어요. */
 const canon=v=>Array.isArray(v)?'['+v.map(canon).join(',')+']':v&&typeof v==='object'?'{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canon(v[k])).join(',')+'}':JSON.stringify(v);
-const SETTINGS=['theme','mascot','lesser','range','language','ai'];
+const SETTINGS=['theme','mascot','lesser','range','language','ai','rollover'];
 let snap=null,snapSettings=null;
 function snapshot(){const m=new Map();for(const k of ['blocks','fixed','todos'])for(const r of S[k]||[]){const {u,...rest}=r;m.set(r.id,k+canon(rest))}return m}
 function settingsSig(){return canon(Object.fromEntries(SETTINGS.map(k=>[k,S[k]])))}
@@ -371,12 +373,27 @@ function applyLanguage(){
   document.querySelector('.mode').setAttribute('aria-label',T('화면 모드','Appearance'));
   document.querySelector('.dur').setAttribute('aria-label',T('걸리는 시간','Duration'));
   $('lesser-art').title=T('누르면 레서와 대화해요','Click to chat with Lesser');
+  $('roll-toggle').textContent=S.rollover===false?T('못 끝낸 블록 다음 날로: 끔','Carry unfinished blocks: off'):T('못 끝낸 블록 다음 날로: 켬','Carry unfinished blocks: on');
   if(window.chatLanguage)window.chatLanguage();
   for(const b of document.querySelectorAll('#clear-opts .opt'))if(!b.classList.contains('armed'))b.textContent=clearLabel(b.dataset.what);
 }
 
+/* ---------- 못 끝낸 블록은 다음 날로 (PlanLess의 이월과 같은 방식: id·내용 그대로 날짜만 오늘로) ----------
+   지난 7일 안의 완료 안 한 블록을 오늘로 옮겨요. 같은 시간이 비어 있으면 그 시간, 아니면 가장 이른 빈칸.
+   오늘이 꽉 차면 그다음 날. 옮긴 블록은 ↪ 표시. 맥·아이폰에서 같은 id라 동기화해도 하나로 합쳐져요. */
+function rollOver(){
+  if(!S||S.rollover===false)return 0;
+  const today=key(new Date()),since=(()=>{const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-7);return key(d)})();
+  const late=S.blocks.filter(b=>!b.done&&b.date<today&&b.date>=since).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:a.start-b.start);
+  for(const b of late){let placed=false;
+    for(let i=0;i<7&&!placed;i++){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()+i);const day=key(d);
+      const s=fits(day,b.start,b.len,b.id)?b.start:freeOn(day,b.len);if(s!=null){b.date=day;b.start=s;placed=true}}
+    if(!placed)b.date=today;
+    b.carried=(b.carried||0)+1}
+  return late.length}
 function render(fresh,flash){
   applyLanguage();fitSlots();
+  const rolled=rollOver();if(rolled){save();setTimeout(()=>toast(T(`못 끝낸 블록 ${rolled}개를 오늘로 옮겼어요`,`Moved ${rolled} unfinished block${rolled>1?'s':''} to today`)),0)}
   const dates=weekDates(wk), tk=key(today()), h=slotH();
   $('range').textContent=`${dates[0].getMonth()+1}/${dates[0].getDate()} – ${dates[6].getMonth()+1}/${dates[6].getDate()}`;
   $('now').hidden=wk===0;
@@ -389,7 +406,7 @@ function render(fresh,flash){
   dates.forEach(dt=>{const k=key(dt);
     html+=`<div class="col${k===tk?' today':''}" data-date="${k}" style="--slots:${ROWS()}">`;
     for(const b of onDay(k)){if(b.start+b.len<=FROM()||b.start>=TO()){outside++;continue}const top=(b.start-FROM())*h;
-      html+=`<div class="blk${b.len===1?' short':''}${b.fixed?' fixed':''}${b.done?' done':''}${fresh===b.id?' drop':''}${flash===b.id?' flash':''}" tabindex="0" role="button" data-id="${b.id}" title="${esc(b.name)} ${hm(b.start)}–${hm(b.start+b.len)}"
+      html+=`<div class="blk${b.len===1?' short':''}${b.carried?' carried':''}${b.fixed?' fixed':''}${b.done?' done':''}${fresh===b.id?' drop':''}${flash===b.id?' flash':''}" tabindex="0" role="button" data-id="${b.id}" title="${esc(b.name)} ${hm(b.start)}–${hm(b.start+b.len)}"
         aria-label="${esc(b.name)}, ${dayName(k)} ${hm(b.start)}${T('부터','')}${b.done?T(', 완료',', completed'):''}"
         style="top:${top}px;height:${b.len*h}px;--c:${b.fixed?'var(--fixed)':'var(--t'+b.c+')'};--ink:${b.c===2?'#2a2200':'#fff'};--fall:${top+60}px"><span>${esc(b.name)}</span>${b.len*h>=16?'<i class="dup" title="Duplicate (⌘D)" aria-hidden="true">⧉</i>':''}</div>`}
     html+='</div>';
@@ -549,6 +566,8 @@ function applyMode(){
 $('m-light').onclick=()=>{S.theme='light';save();applyMode()};
 $('m-saver').onclick=()=>{S.theme='saver';save();applyMode();toast(T('절전 모드: 어두운 화면','Dark mode enabled'))};
 $('lesser-toggle').onclick=()=>{S.lesser=!S.lesser;save();applyMode()};
+$('roll-toggle').onclick=()=>{S.rollover=S.rollover===false;save();render();toast(S.rollover?T('못 끝낸 블록을 다음 날로 넘겨요','Unfinished blocks move to the next day'):T('못 끝낸 블록을 그 날짜에 그대로 둬요','Unfinished blocks stay on their day'))};
+setInterval(()=>{if(!drag&&rollOver()){save();render()}},60000);   // 자정이 지나면
 
 /* ---------- 레서: PlanLess companion.js의 그림·시선·깜빡임 로직을 그대로 옮김 ---------- */
 const L=(()=>{

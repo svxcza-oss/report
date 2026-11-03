@@ -8,7 +8,7 @@ import Foundation
 /// - 처음 설치해서 생긴 예시 블록뿐인 계획은 진짜 계획과 섞지 않아요.
 enum PlanMerge {
     static let lists = ["blocks", "fixed", "todos"]
-    static let settings = ["theme", "mascot", "lesser", "range", "language", "ai"]
+    static let settings = ["theme", "mascot", "lesser", "range", "language", "ai", "rollover"]
 
     static func ms(_ value: Any?) -> Double { (value as? NSNumber)?.doubleValue ?? 0 }
     static func nowMs() -> Double { (Date().timeIntervalSince1970 * 1000).rounded() }

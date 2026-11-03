@@ -108,7 +108,17 @@ func loadBoard() -> Board {
         return Block(id: id, name: name, len: max(1, int(r["len"], 2)) * factor, color: int(r["c"], 1), date: date,
                      start: max(0, int(r["start"], 0) + shift) * factor, done: (r["done"] as? NSNumber)?.boolValue ?? false)
     }
-    board.blocks = weekly + dated
+    // 못 끝낸 블록 다음 날로: 앱을 아직 안 열었어도 위젯에는 지난 7일의 못 끝낸 블록을 오늘에 보여줘요.
+    var shown = dated
+    if root["rollover"] as? Bool != false {
+        let now = Date(), today = dayKey(now)
+        let since = dayKey(Calendar(identifier: .gregorian).date(byAdding: .day, value: -7, to: now) ?? now)
+        shown = dated.map { b in
+            guard !b.done, b.date < today, b.date >= since else { return b }
+            return Block(id: b.id, name: b.name, len: b.len, color: b.color, date: today, start: b.start, done: false)
+        }
+    }
+    board.blocks = weekly + shown
     board.todos = ((root["todos"] as? [[String: Any]]) ?? []).compactMap { r in
         guard let id = r["id"] as? String, let text = r["text"] as? String else { return nil }
         return Todo(id: id, text: text, scope: r["scope"] as? String == "week" ? "week" : "day", doneOn: r["doneOn"] as? String)
