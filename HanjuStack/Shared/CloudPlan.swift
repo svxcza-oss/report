@@ -83,6 +83,10 @@ final class CloudPlan: @unchecked Sendable {
             }
             lastError = nil
         } catch {
+            // 영역이 없으면(처음 만들기가 실패했거나 사용자가 iCloud 데이터를 지웠을 때) 다음 번에 다시 만들어요.
+            if let ck = error as? CKError, ck.code == .zoneNotFound || ck.code == .userDeletedZone {
+                UserDefaults.standard.removeObject(forKey: Self.readyKey)
+            }
             lastError = (error as? CKError).map { "CloudKit \($0.code.rawValue): \($0.localizedDescription)" } ?? error.localizedDescription
             NSLog("HanjuStack sync: %@", lastError ?? "")
         }
@@ -93,6 +97,8 @@ final class CloudPlan: @unchecked Sendable {
         return changedHere
     }
 
+    static let readyKey = "hanju.cloudkit.ready.v2"
+
     private func fetch() async throws -> CKRecord? {
         do { return try await database.record(for: recordID) }
         catch let error as CKError where error.code == .unknownItem { return nil }
@@ -100,14 +106,15 @@ final class CloudPlan: @unchecked Sendable {
 
     /// 처음 한 번: 영역(zone)과 "바뀌면 알려 줘" 구독을 만들어요.
     private func prepare() async throws {
-        let key = "hanju.cloudkit.ready.v1"
-        if UserDefaults.standard.bool(forKey: key) { return }
-        _ = try await database.modifyRecordZones(saving: [CKRecordZone(zoneID: zone)], deleting: [])
+        if UserDefaults.standard.bool(forKey: Self.readyKey) { return }
+        // 영역 하나하나의 실패는 throw가 아니라 결과로 와요. 실패를 놓치면 영역 없이 "준비 끝"으로 기록돼 버려요.
+        let (zones, _) = try await database.modifyRecordZones(saving: [CKRecordZone(zoneID: zone)], deleting: [])
+        if case .failure(let error) = zones[zone] { throw error }
         let subscription = CKDatabaseSubscription(subscriptionID: "hanju-plan-changes")
         let info = CKSubscription.NotificationInfo()
         info.shouldSendContentAvailable = true      // 조용한 알림: 화면에 아무것도 안 띄우고 앱만 깨워요
         subscription.notificationInfo = info
         _ = try? await database.modifySubscriptions(saving: [subscription], deleting: [])
-        UserDefaults.standard.set(true, forKey: key)
+        UserDefaults.standard.set(true, forKey: Self.readyKey)
     }
 }
