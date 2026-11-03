@@ -146,6 +146,7 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         HanjuCloudSync: true
         UIBackgroundModes: [remote-notification]
+        NSSupportsLiveActivities: true
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
@@ -182,6 +183,7 @@ targets:
       - path: Widget
         excludes: [entitlements.plist]
       - path: Shared
+      - path: Resources/Mascots/planner/idle/frame-05.png
       - path: Resources/Fonts
         type: folder
     info:

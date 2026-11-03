@@ -99,7 +99,11 @@ final class BoardController: UIViewController, WKScriptMessageHandler, WKNavigat
         // 앱이 켜져 있는 동안 위젯에서 체크한 것을 1~2초 안에 가져와요.
         watcher = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in self?.pull() }
         cloudTimer?.invalidate()
-        cloudTimer = Timer.scheduledTimer(withTimeInterval: 20, repeats: true) { [weak self] _ in self?.cloud?.sync() }
+        cloudTimer = Timer.scheduledTimer(withTimeInterval: 20, repeats: true) { [weak self] _ in
+            self?.cloud?.sync()
+            self?.refreshLive()
+        }
+        refreshLive()
     }
 
     // MARK: 페이지 ↔ 저장
@@ -115,6 +119,7 @@ final class BoardController: UIViewController, WKScriptMessageHandler, WKNavigat
             run("window.hanjuDidSave && window.hanjuDidSave(\(lastRevision))")
             if !PlanMerge.same(saved, state) { lastRevision = -1; pull() }
             WidgetCenter.shared.reloadAllTimelines()
+            LiveBlocks.refresh(saved)
             cloud?.sync()
         } catch {
             run("window.hanjuSaveRejected && window.hanjuSaveRejected()")
@@ -127,6 +132,7 @@ final class BoardController: UIViewController, WKScriptMessageHandler, WKNavigat
     func becameActive() {
         cloud?.sync()
         pull()
+        refreshLive()
     }
 
     func pull() {
@@ -140,6 +146,13 @@ final class BoardController: UIViewController, WKScriptMessageHandler, WKNavigat
         web.evaluateJavaScript("window.hanjuLoad && window.hanjuLoad(\(text))") { [weak self] value, error in
             if error == nil, value as? Bool == true { self?.lastRevision = revision }
         }
+        LiveBlocks.refresh(state)
+    }
+
+    /// 잠금화면 실시간 현황을 지금 계획에 맞춰요 (앱이 화면에 있을 때만 새로 시작할 수 있어요).
+    func refreshLive() {
+        guard UIApplication.shared.applicationState == .active else { return }
+        LiveBlocks.refresh(try? store?.read())
     }
 
     private func show(_ error: Error) {
