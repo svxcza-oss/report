@@ -88,7 +88,12 @@ func lesserSnapshot(_ root: [String: Any], now: Date = Date()) -> CompanionSnaps
         let status = done ? 2 : (start <= slot && slot < start + len ? 1 : 0)
         return CompanionGoal(id: id, day: today, subject: "", title: name, status: status)
     }
-    return CompanionSnapshot(goals: goals)
+    // 챌린지 오늘 항목도 체크하면 레서가 축하해요.
+    var extra: [CompanionGoal] = []
+    if let ch = Challenge.today(root["challenges"] as? [[String: Any]] ?? [], now: now), ch.state == "active" {
+        extra = ch.items.map { CompanionGoal(id: "\(ch.id)/\($0.id)", day: today, subject: ch.title, title: $0.text, status: $0.done ? 2 : 0) }
+    }
+    return CompanionSnapshot(goals: goals + extra)
 }
 
 final class MenuBarLesser: NSObject {
@@ -200,11 +205,60 @@ final class MenuBarLesser: NSObject {
 
 enum DesktopLesserPlace: String { case off, desktop, top }
 
+/// 레서가 들고 다니는 챌린지 그릇. 오늘 Day를 채운 만큼 물이 차거나 새싹이 자라요.
+final class VesselView: NSView {
+    var kind = "beaker" { didSet { if kind != oldValue { needsDisplay = true } } }
+    var percent: Double = 0 { didSet { if percent != oldValue { needsDisplay = true } } }
+    var phase: Double = 0 { didSet { if percent > 0 { needsDisplay = true } } }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    override func draw(_ dirtyRect: NSRect) {
+        guard let ctx = NSGraphicsContext.current?.cgContext else { return }
+        let s = min(bounds.width / 26, bounds.height / 32)
+        ctx.saveGState()
+        // 그림 좌표는 위가 0이에요 → 뒤집어서 그려요.
+        ctx.translateBy(x: (bounds.width - 26 * s) / 2 + s, y: bounds.height - (bounds.height - 32 * s) / 2)
+        ctx.scaleBy(x: s, y: -s)
+        let ink = NSColor(red: 0.16, green: 0.18, blue: 0.27, alpha: 1).cgColor
+        for l in Vessel.layers(kind, percent, phase: phase) {
+            let color = l.ink ? ink : CGColor(red: l.r, green: l.g, blue: l.b, alpha: l.a)
+            ctx.addPath(l.path)
+            if l.stroke > 0 {
+                ctx.setStrokeColor(color); ctx.setLineWidth(l.stroke); ctx.setLineCap(.round); ctx.setLineJoin(.round); ctx.strokePath()
+            } else {
+                ctx.setFillColor(color); ctx.fillPath()
+            }
+        }
+        ctx.restoreGState()
+    }
+}
+
+/// 바탕화면 레서 창의 내용: 레서 + 그릇. 레서 몸을 누르면 앱이 열리고 레서와 대화가 시작돼요.
+final class DesktopLesserView: NSView {
+    let sprite = CompanionSpriteView()
+    let vessel = VesselView()
+    var onClick: (() -> Void)?
+    private var downAt: NSPoint?
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func mouseDown(with event: NSEvent) { downAt = event.locationInWindow }
+    override func mouseUp(with event: NSEvent) {
+        defer { downAt = nil }
+        guard let downAt, hypot(event.locationInWindow.x - downAt.x, event.locationInWindow.y - downAt.y) < 6 else { return }
+        onClick?()
+    }
+    override func resetCursorRects() { addCursorRect(sprite.frame, cursor: .pointingHand) }
+}
+
 final class DesktopLesser: NSObject {
     let assets = CompanionAssets()
     private let panel: NSPanel
-    private let sprite = CompanionSpriteView()
+    private let content = DesktopLesserView()
+    private var sprite: CompanionSpriteView { content.sprite }
     private var timer: Timer?
+    private var hoverTimer: Timer?
+    private let vesselWidth: CGFloat = 34
+    /// 챌린지 그릇 (없으면 nil = 빈손).
+    var vessel: (kind: String, percent: Double)? { didSet { tick() } }
+    var onClick: (() -> Void)? { didSet { content.onClick = onClick } }
     private var x: CGFloat = 200
     private var target: CGFloat = 200
     private var pauseUntil: Double = 0
@@ -224,9 +278,13 @@ final class DesktopLesser: NSObject {
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false
-        panel.ignoresMouseEvents = true          // never gets in the way of clicks
+        // 투명한 곳은 클릭을 그대로 통과시키고, 마우스가 레서 몸 위에 있을 때만 클릭을 받아요 (hoverTimer).
+        panel.ignoresMouseEvents = true
+        panel.acceptsMouseMovedEvents = false
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
-        panel.contentView = sprite
+        panel.contentView = content
+        content.addSubview(sprite)
+        content.addSubview(content.vessel)
         if let screen = NSScreen.main { x = screen.visibleFrame.midX; target = x }
         applyPlace()
     }
@@ -247,7 +305,12 @@ final class DesktopLesser: NSObject {
 
     private func restart() {
         timer?.invalidate(); timer = nil
+        hoverTimer?.invalidate(); hoverTimer = nil
         guard place != .off else { return }
+        let hover = Timer(timeInterval: 0.12, repeats: true) { [weak self] _ in self?.updateHover() }
+        hover.tolerance = 0.04
+        RunLoop.main.add(hover, forMode: .common)
+        hoverTimer = hover
         let t = Timer(timeInterval: saver ? 5 : 1.0 / 24, repeats: true) { [weak self] _ in self?.tick() }
         t.tolerance = saver ? 1 : 0.008
         RunLoop.main.add(t, forMode: .common)
@@ -287,7 +350,31 @@ final class DesktopLesser: NSObject {
             frame = CompanionPlayback.frame(at: now - walkStart, milliseconds: assets.durations(character, .working))
         }
         x = min(max(x, area.minX + size / 2), area.maxX - size / 2)
-        panel.setFrame(NSRect(x: x - size / 2, y: area.minY, width: size, height: size), display: false)
+        // 그릇은 레서가 바라보는 쪽 손에 들려 있어요.
+        let extra: CGFloat = vessel == nil ? 0 : vesselWidth - 12
+        let left = sprite.mirrored
+        panel.setFrame(NSRect(x: x - size / 2 - (left ? extra : 0), y: area.minY, width: size + extra, height: size), display: false)
+        sprite.frame = NSRect(x: left ? extra : 0, y: 0, width: size, height: size)
+        if let vessel {
+            content.vessel.isHidden = false
+            content.vessel.frame = NSRect(x: left ? 0 : size - 12, y: 10, width: vesselWidth, height: 44)
+            content.vessel.kind = vessel.kind
+            content.vessel.percent = vessel.percent
+            if !saver { content.vessel.phase = now }
+        } else {
+            content.vessel.isHidden = true
+        }
         sprite.sprite = assets.image(character, mode, frame)
+    }
+
+    /// 마우스가 레서 몸 위에 있을 때만 창이 클릭을 받아요. 나머지는 뒤에 있는 바탕화면·창으로 그대로 가요.
+    private func updateHover() {
+        guard panel.isVisible else { return }
+        let body = panel.convertToScreen(sprite.frame).insetBy(dx: 18, dy: 6)
+        let over = body.contains(NSEvent.mouseLocation)
+        if panel.ignoresMouseEvents == over {
+            panel.ignoresMouseEvents = !over
+            if over { panel.invalidateCursorRects(for: content) }
+        }
     }
 }

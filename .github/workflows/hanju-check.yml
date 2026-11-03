@@ -30,6 +30,7 @@ jobs:
           python3 scripts/check-config.py
           node tests/time-migration.cjs
           node tests/save-queue.cjs
+          node tests/challenge.cjs
       - name: 맥 개인용 빌드
         working-directory: HanjuStack
         run: ./build-local.sh

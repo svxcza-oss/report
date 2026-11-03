@@ -172,6 +172,10 @@ final class BoardController: UIViewController, WKScriptMessageHandler, WKNavigat
             run("window.hanjuAddTodo && window.hanjuAddTodo('\(url.lastPathComponent == "week" ? "week" : "day")')")
             return
         }
+        if url.host == "challenge" {   // 위젯의 챌린지 칸
+            run("window.hanjuShowChallenge && window.hanjuShowChallenge()")
+            return
+        }
         guard url.host == "day" else { return }
         let day = url.lastPathComponent
         if day.range(of: "^\\d{4}-\\d{2}-\\d{2}$", options: .regularExpression) != nil {
