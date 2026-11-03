@@ -143,12 +143,69 @@ button{font:inherit;cursor:pointer;border:0;border-radius:10px}
 .chat .set .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .chat .set .row button{background:var(--bg);color:var(--fg);border:1px solid var(--line);padding:6px 10px;font-size:12px;border-radius:8px}
 .chat .set p{margin:0;color:var(--muted);line-height:1.45}
+/* 챌린지: N일 계획 + 날마다 체크. 그날 채운 만큼 그릇(비커·물병·화분)이 차올라요 */
+.chs{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}
+.ch{gap:8px}
+.ch-head{display:flex;gap:10px;align-items:center}
+.ch-head .vs-big{flex:none;width:32px;height:42px;color:var(--fg)}
+.ch-head .vs-big svg{width:32px;height:42px}
+.ch-head>div{flex:1;min-width:0;display:grid;gap:2px}
+.ch-name{font-weight:800;font-size:14px;cursor:text;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ch-name-in{font:inherit;font-weight:800;font-size:14px;color:var(--fg);background:var(--bg);border:1px solid var(--accent);border-radius:6px;padding:3px 6px;min-width:0}
+.ch-sub{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ch-pct{font:800 20px var(--f-display);font-variant-numeric:tabular-nums}
+.ch-badges{display:flex;gap:6px;flex-wrap:wrap}
+.ch-badge{font-size:11px;padding:2px 7px;border-radius:99px;background:var(--cell)}
+.ch-badge.late{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+.ch-days{display:flex;gap:2px;overflow-x:auto;padding-bottom:3px;scrollbar-width:thin}
+.ch-day{flex:none;display:grid;justify-items:center;gap:1px;background:none;padding:3px 1px;border-radius:6px;color:var(--muted);font-size:10px;width:24px}
+.ch-day svg{width:14px;height:19px;color:var(--muted)}
+.ch-day.on{background:var(--cell);color:var(--fg)}
+.ch-day.today b{color:var(--accent)}
+.ch li .tx{cursor:pointer}
+.ch li .tx em{font-style:normal;font-size:11px;color:var(--muted)}
+.ch-link{flex:none;background:none;color:var(--accent);padding:2px 6px;font-size:14px}
+.ch-empty{color:var(--muted);font-size:13px}
+.ch-behind summary{cursor:pointer;font-size:12px;color:var(--muted);padding:2px 4px}
+.ch-behind ul{margin-top:4px}
+.ch-foot{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.ch-foot button{background:none;color:var(--muted);font-size:11px;padding:4px 7px;border:1px solid var(--line);border-radius:6px}
+.ch-foot button.armed{color:var(--bad);border-color:var(--bad)}
+.ch-new{border:1.5px dashed var(--line);background:none;border-radius:10px;padding:14px;color:var(--fg);font-weight:700;font-size:13px;display:grid;gap:4px;justify-items:center;align-content:center;min-height:64px}
+.ch-new small{font-weight:400;color:var(--muted);font-size:11px}
+.sheet{position:fixed;inset:0;z-index:60;background:rgba(10,12,20,.35);display:grid;place-items:center;padding:16px}
+.sheet form{background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:14px;width:min(500px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:14px;display:grid;gap:10px;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+.sheet header{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.sheet header b{font-size:15px}
+.sheet header button{background:var(--well);color:var(--fg);padding:5px 9px;border-radius:7px}
+.sheet label{display:grid;gap:4px;font-size:12px;color:var(--muted);min-width:0}
+.sheet input,.sheet select,.sheet textarea{font:inherit;font-size:14px;color:var(--fg);background:var(--well);border:1px solid var(--line);border-radius:8px;padding:7px 9px;min-width:0;width:100%}
+.sheet textarea{resize:vertical;min-height:150px;line-height:1.45}
+.sheet .row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+.sheet .go{background:var(--accent);color:#fff;font-weight:700;padding:10px}
+.ch-tpl{display:flex;gap:6px;flex-wrap:wrap}
+.ch-tpl button{background:var(--well);color:var(--fg);border:1px solid var(--line);font-size:12px;padding:6px 10px;border-radius:99px}
+.ch-tpl button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);font-weight:700}
+.ch-preview{margin:0;font-size:12px;color:var(--muted);white-space:pre-line}
+.lbody{position:relative;display:block;line-height:0}
+.lesser .vessel{position:absolute;right:-10px;bottom:4px;display:grid;justify-items:center;gap:1px;pointer-events:none;color:var(--fg);line-height:1}
+.lesser .vessel svg{width:28px;height:37px}
+.lesser .vessel i{font-style:normal;font-size:10px;font-weight:800;background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:1px 4px}
+.lesser.flip .vessel{right:auto;left:-10px}
+.vs .bub{animation:vsbub 2.4s ease-in infinite;transform-box:fill-box}
+.vs .spark{animation:vsspark 1.1s ease-in-out infinite alternate}
+@keyframes vsbub{from{transform:translateY(0);opacity:.9}to{transform:translateY(-5px);opacity:0}}
+@keyframes vsspark{from{opacity:.25}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.vs .bub,.vs .spark{animation:none}}
+body.saver .vs .bub,body.saver .vs .spark{animation:none}
 @media (hover:none){.blk .dup{display:block}}
 /* 아이폰처럼 좁은 화면: 일주일이 화면 폭·높이에 딱 맞게 */
 @media (max-width:700px){
   body{padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px));padding-block:calc(8px + env(safe-area-inset-top,0px)) calc(96px + env(safe-area-inset-bottom,0px))}
   .wrap{gap:10px;grid-template-columns:minmax(0,1fr)}
-  .todos{grid-template-columns:minmax(0,1fr)}
+  .todos,.chs{grid-template-columns:minmax(0,1fr)}
+  .lesser .vessel svg{width:20px;height:27px}
+  .lesser .vessel i{display:none}
   .tl,.tl form,.tl-add{min-width:0}
   .tl-add{width:0}
   .tl h2{flex-wrap:wrap}
@@ -189,7 +246,7 @@ button{font:inherit;cursor:pointer;border:0;border-radius:10px}
 }
 @media (max-width:370px){.week{flex-wrap:wrap}.hours{margin-left:0}.rep label{padding:10px 6px}#add{padding:10px 10px}}
 /* 터치 기기는 16px보다 작은 입력칸을 누르면 화면이 확대돼요. 그래서 16px로 */
-@media (hover:none) and (pointer:coarse){#name,.dur input,.tl form input,.tl li input.tx,.chat form input,.chat .set input,.chat .set select,.week>select,.hours select{font-size:16px}}
+@media (hover:none) and (pointer:coarse){#name,.dur input,.tl form input,.tl li input.tx,.chat form input,.chat .set input,.chat .set select,.week>select,.hours select,.sheet input,.sheet select,.sheet textarea,.ch-name-in{font-size:16px}}
 @media (prefers-reduced-motion:reduce){.blk.drop,.blk.flash{animation:none}.trash{transition:none}}
 </style>
 
@@ -230,6 +287,7 @@ button{font:inherit;cursor:pointer;border:0;border-radius:10px}
     <section class="tl frost" data-scope="week"><h2><span class="tl-title">이번 주 할 일</span><small class="tl-note">월요일마다 새로 체크</small></h2><ul></ul>
       <form><input class="tl-add" maxlength="60" autocomplete="off" enterkeyhint="done" aria-label="이번 주 할 일 추가"><button type="submit" class="tl-plus" aria-label="추가">＋</button></form></section>
   </div>
+  <div class="chs" id="chs"></div>
 
   <div class="foot">
     <span>누르면 완료 · 끌어서 옮기기 · ⧉ 또는 ⌥(option) 누르고 끌면 복제 · 휴지통으로 끌면 삭제 · 회색 ↻는 매주 고정</span>
@@ -246,7 +304,7 @@ button{font:inherit;cursor:pointer;border:0;border-radius:10px}
     </div>
   </div>
 </div>
-<div class="lesser" id="lesser"><span class="say" id="say">쉬는 중</span><canvas id="lesser-art" width="80" height="80" role="img" aria-label="레서" title="누르면 레서와 대화해요"></canvas></div>
+<div class="lesser" id="lesser"><span class="say" id="say">쉬는 중</span><span class="lbody"><canvas id="lesser-art" width="80" height="80" role="img" aria-label="레서" title="누르면 레서와 대화해요"></canvas><span class="vessel" id="lesser-vessel" hidden></span></span></div>
 <div class="chat" id="chat" role="dialog" aria-labelledby="chat-title" hidden>
   <header>
     <div><b id="chat-title">레서와 대화</b><small id="chat-engine"></small></div>
@@ -317,6 +375,7 @@ function migrate(v){ // older saves kept a weekday index, and counted time from 
   if(!['ko','en'].includes(v.language)){v.language=(navigator.language||'ko').toLowerCase().startsWith('ko')?'ko':'en';v._m=true}
   if(Object.prototype.hasOwnProperty.call(v,'timeFormat')){delete v.timeFormat;v._m=true}
   if(!Array.isArray(v.todos))v.todos=[];
+  if(!Array.isArray(v.challenges))v.challenges=[];
   if(!v.ai||typeof v.ai!=='object')v.ai={provider:'auto',models:{}};if(!['auto','apple','anthropic','openai','script'].includes(v.ai.provider))v.ai.provider='auto';if(!v.ai.models||typeof v.ai.models!=='object')v.ai.models={};
   if(v.theme!=='saver')v.theme='light';if(v.mascot!=='passion')v.mascot='planner';if(v.lesser!==false)v.lesser=true;if(v.rollover!==false)v.rollover=true;
   v.blocks.forEach(b=>{if(!b.date&&b.day!=null){b.date=w[b.day]}delete b.day});
@@ -337,13 +396,13 @@ function save(){
 const canon=v=>Array.isArray(v)?'['+v.map(canon).join(',')+']':v&&typeof v==='object'?'{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canon(v[k])).join(',')+'}':JSON.stringify(v);
 const SETTINGS=['theme','mascot','lesser','range','language','ai','rollover'];
 let snap=null,snapSettings=null;
-function snapshot(){const m=new Map();for(const k of ['blocks','fixed','todos'])for(const r of S[k]||[]){const {u,...rest}=r;m.set(r.id,k+canon(rest))}return m}
+function snapshot(){const m=new Map();for(const k of ['blocks','fixed','todos','challenges'])for(const r of S[k]||[]){const {u,...rest}=r;m.set(r.id,k+canon(rest))}return m}
 function settingsSig(){return canon(Object.fromEntries(SETTINGS.map(k=>[k,S[k]])))}
 function rememberSaved(){snap=snapshot();snapSettings=settingsSig()}
 function stampChanges(){
   if(!snap){rememberSaved();return}
   const now=Date.now(),cur=snapshot();
-  for(const k of ['blocks','fixed','todos'])for(const r of S[k]||[])if(snap.get(r.id)!==cur.get(r.id))r.u=now;
+  for(const k of ['blocks','fixed','todos','challenges'])for(const r of S[k]||[])if(snap.get(r.id)!==cur.get(r.id))r.u=now;
   for(const id of snap.keys())if(!cur.has(id)){if(!S.deleted||typeof S.deleted!=='object')S.deleted={};S.deleted[id]=now}
   const sig=settingsSig();if(sig!==snapSettings)S._settingsAt=now;
   rememberSaved();
@@ -415,7 +474,7 @@ function render(fresh,flash){
   board.querySelectorAll('.blk').forEach(el=>{el.addEventListener('pointerdown',down);el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle(el.dataset.id)}else if(e.key==='Delete'||e.key==='Backspace'){remove(el.dataset.id)}else if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='d'){e.preventDefault();dupe(el.dataset.id)}})});
   board.querySelectorAll('.blk .dup').forEach(d=>d.title=T('복제 (⌘D)','Duplicate (⌘D)'));
   board.querySelectorAll('.blk .dup').forEach(d=>d.addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();dupe(d.parentElement.dataset.id)}));
-  renderTodos();
+  renderTodos();renderChallenges();
   $('hidden-note').textContent=outside?T(`보이는 시간 밖에 블록 ${outside}개`,`${outside} blocks outside visible hours`):'';
   $('language').value=S.language;
   for(const id of ['from','to'])for(const o of $(id).options)o.textContent=hm(Number(o.value)*6);
@@ -427,7 +486,7 @@ const todoDone=t=>t.doneOn===periodKey(t.scope);
 const todosOf=scope=>{const all=S.todos.filter(t=>t.scope===scope);return [...all.filter(t=>!todoDone(t)),...all.filter(todoDone)]};
 let editingTodo=null;
 function renderTodos(){
-  for(const sec of document.querySelectorAll('.tl')){const scope=sec.dataset.scope,list=todosOf(scope),ul=sec.querySelector('ul');
+  for(const sec of document.querySelectorAll('#todos .tl')){const scope=sec.dataset.scope,list=todosOf(scope),ul=sec.querySelector('ul');
     sec.querySelector('.tl-title').textContent=scope==='day'?T('오늘 할 일','Today'):T('이번 주 할 일','This week');
     const left=list.filter(t=>!todoDone(t)).length;
     sec.querySelector('.tl-note').textContent=list.length?T(`${list.length-left}/${list.length} 완료`,`${list.length-left}/${list.length} done`)+' · '+(scope==='day'?T('매일 새로 체크','resets daily'):T('월요일마다 새로 체크','resets Monday')):(scope==='day'?T('매일 새로 체크','resets daily'):T('월요일마다 새로 체크','resets Monday'));
@@ -444,8 +503,188 @@ document.getElementById('todos').addEventListener('click',e=>{const li=e.target.
   if(e.target.closest('.ck'))toggleTodo(id);else if(e.target.closest('.del')){S.todos=S.todos.filter(t=>t.id!==id);save();renderTodos()}
   else if(e.target.matches('span.tx')){editingTodo=id;renderTodos()}});
 document.getElementById('todos').addEventListener('keydown',e=>{if(e.target.matches('span.tx')&&(e.key==='Enter'||e.key===' ')){e.preventDefault();editingTodo=e.target.closest('li').dataset.id;renderTodos()}});
-for(const sec of document.querySelectorAll('.tl'))sec.querySelector('form').addEventListener('submit',e=>{e.preventDefault();const i=sec.querySelector('.tl-add');if(addTodo(sec.dataset.scope,i.value))i.value='';i.focus()});
+for(const sec of document.querySelectorAll('#todos .tl'))sec.querySelector('form').addEventListener('submit',e=>{e.preventDefault();const i=sec.querySelector('.tl-add');if(addTodo(sec.dataset.scope,i.value))i.value='';i.focus()});
 window.hanjuAddTodo=scope=>{const sec=document.querySelector(`.tl[data-scope="${scope==='week'?'week':'day'}"]`);sec.scrollIntoView({behavior:'smooth',block:'center'});setTimeout(()=>sec.querySelector('.tl-add').focus(),250)};
+/* ---------- 챌린지: N일 계획 + 날마다 체크할 항목. 그날 채운 만큼 레서가 든 그릇(비커·물병·화분)이 차올라요 ----------
+   c = {id, title, start, end, mode:'fixed'|'shift', vessel:'beaker'|'bottle'|'pot', days:[{t, items:[{id,text,url}]}], checks:{항목id: 체크한 날짜}}
+   날짜 고정(fixed): Day N = 시작일 + N-1. 못 끝낸 날은 그날 %로 남고, 남은 항목은 "밀린 항목"으로 따라와요.
+   밀기(shift): 다 끝낼 때까지 그 Day에 머물러요. 오늘 다 끝내면 오늘은 100%로 보여주고 다음 Day는 내일부터.
+   Shared/Challenge.swift(위젯·바탕화면 레서)가 같은 규칙을 써요. */
+const VESSELS=['beaker','bottle','pot'];
+const dayDiff=(a,b)=>Math.round((new Date(b+'T00:00')-new Date(a+'T00:00'))/864e5);
+const addDays=(k,n)=>{const d=new Date(k+'T00:00');d.setDate(d.getDate()+n);return key(d)};
+const mdOf=k=>{const d=new Date(k+'T00:00');return `${d.getMonth()+1}/${d.getDate()}`};
+function chNow(c,tk=key(today())){
+  const days=c&&Array.isArray(c.days)?c.days:[],n=days.length,ch=c&&c.checks||{},done=it=>!!ch[it.id];if(!n||!validDate(c.start))return null;
+  const dayDone=i=>days[i].items.every(done),finishedOn=i=>days[i].items.reduce((m,it)=>ch[it.id]&&ch[it.id]>m?ch[it.id]:m,'');
+  let state='active',idx,behind=0;
+  if(c.start>tk){state='upcoming';idx=0}
+  else if(c.mode==='shift'){const open=days.findIndex((_,i)=>!dayDone(i));
+    if(open<0){idx=n-1;if(finishedOn(idx)<tk)state='finished'}else{idx=open;if(idx>0&&finishedOn(idx-1)===tk)idx--}}
+  else{idx=dayDiff(c.start,tk);if(idx>=n){idx=n-1;state='finished'}
+    for(let i=0;i<(state==='finished'?n:idx);i++)behind+=days[i].items.filter(it=>!done(it)).length}
+  const items=days[idx].items;
+  return {state,idx,n,day:days[idx],items,pct:items.length?items.filter(done).length/items.length:1,behind,
+    left:validDate(c.end)?dayDiff(tk,c.end):null,eta:c.mode==='shift'&&state!=='finished'?addDays(tk,n-1-idx):null}}
+function chDayPct(c,i,tk=key(today())){ // 날짜 고정: 지난 Day는 그날까지 체크한 만큼만 (나중에 밀린 걸 해도 그날 그릇은 그대로)
+  const items=c.days[i]?.items||[],ch=c.checks||{};if(!items.length)return 1;
+  const cut=c.mode!=='shift'&&c.start<=tk?addDays(c.start,i):null,limit=cut&&cut<tk?cut:null;
+  return items.filter(it=>ch[it.id]&&(!limit||ch[it.id]<=limit)).length/items.length}
+const chActive=()=>{for(const c of S.challenges){if(c.archived)continue;const now=chNow(c);if(now&&now.state==='active')return {c,now}}return null};
+let vsN=0;
+function vesselSVG(kind,pct){pct=Math.max(0,Math.min(1,+pct||0));const id='vsc'+(++vsN);
+  const star=(x,y,r)=>`<path class="spark" fill="#e6b21c" d="M${x} ${y-r}L${x+r*.3} ${y-r*.3}L${x+r} ${y}L${x+r*.3} ${y+r*.3}L${x} ${y+r}L${x-r*.3} ${y+r*.3}L${x-r} ${y}L${x-r*.3} ${y-r*.3}Z"/>`;
+  let s='';
+  if(kind==='pot'){const top=20-(3+pct*13);
+    s+='<path d="M3 19h18v3H3z" fill="#b8643a"/><path d="M4 22h16l-2 8H6z" fill="#d0784a"/><ellipse cx="12" cy="21.4" rx="8" ry="1.1" fill="#6b4630"/>';
+    if(pct<=0)s+='<ellipse cx="12" cy="20.4" rx="1.5" ry="1" fill="#8a5a3a"/>';
+    else{s+=`<path d="M12 21V${top.toFixed(1)}" stroke="#3fa55f" stroke-width="1.6" stroke-linecap="round" fill="none"/>`;
+      if(pct>=.25)s+='<path d="M12 16q-5-.5-6.5-4.5q5 0 6.5 4.5z" fill="#4cb86b"/>';
+      if(pct>=.55)s+='<path d="M12 12.5q5-.5 6.5-4.5q-5 0-6.5 4.5z" fill="#3fa55f"/>';
+      if(pct>=1){for(let k=0;k<5;k++){const a=k/5*Math.PI*2-Math.PI/2;s+=`<circle cx="${(12+2.5*Math.cos(a)).toFixed(2)}" cy="${(top+2.5*Math.sin(a)).toFixed(2)}" r="2" fill="#dc4d4a"/>`}
+        s+=`<circle cx="12" cy="${top}" r="1.5" fill="#e6b21c"/>`+star(3,6,2.2)+star(21,9,1.8)}}}
+  else{const bottle=kind==='bottle',body=bottle?'M10 4H14V7.5Q19 9 19 12V28Q19 30 17 30H7Q5 30 5 28V12Q5 9 10 7.5Z':'M9 2V11L3 28Q2.6 30 5 30H19Q21.4 30 21 28L15 11V2Z';
+    const lv=30-pct*(bottle?23:26),color=bottle?'#3f6fd8':'#24a9b8';
+    s+=`<clipPath id="${id}"><path d="${body}"/></clipPath><path d="${body}" fill="rgba(255,255,255,.4)"/>`;
+    if(pct>0){s+=`<g clip-path="url(#${id})"><path d="M-1 ${lv}q3-1.2 6.5 0t6.5 0t6.5 0t6.5 0V32H-1Z" fill="${color}"/><path d="M-1 ${lv}q3-1.2 6.5 0t6.5 0t6.5 0t6.5 0" stroke="rgba(255,255,255,.55)" stroke-width=".8" fill="none"/>`;
+      [[10,5,.9,0],[13.5,9,.7,.8],[11.5,13,.8,1.6]].forEach(([x,dy,r,d])=>{if(lv+dy<29)s+=`<circle class="bub" style="animation-delay:${d}s" cx="${x}" cy="${lv+dy}" r="${r}" fill="rgba(255,255,255,.75)"/>`});s+='</g>'}
+    s+=`<path d="${body}" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>`;
+    s+=bottle?'<path d="M9.5 1h5v3.4h-5z" fill="#e5852a"/>':'<path d="M7.5 2H16.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M14.6 18h1.8M15.6 22h2" stroke="currentColor" stroke-width=".7" opacity=".5"/>';
+    if(pct>=1)s+=star(2.5,5,2.2)+star(21.5,7,1.8)}
+  return `<svg class="vs" viewBox="-1 0 26 32" aria-hidden="true">${s}</svg>`}
+const vesselName=v=>({beaker:T('🧪 비커','🧪 Beaker'),bottle:T('💧 물병','💧 Bottle'),pot:T('🌱 화분','🌱 Pot')})[v]||v;
+
+/* 붙여넣은 글 → Day 목록. "Day 1 제목" 다음 줄들이 그날 항목(쉼표로 나눔, 문장이면 문장마다),
+   "매일: …" + "기간: 21일", "범위: …" + "마지막 날: …"(마감일까지 나눠 담기), 머리글 없으면 한 줄 = 하루. */
+function parseChallenge(text,o={}){
+  const lines=String(text||'').replace(/\r/g,'').split('\n').map(x=>x.trim()).filter(Boolean);
+  const md=/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,bare=/https?:\/\/[^\s)]+/g;
+  function items(line){const out=[];line=line.replace(/^[-*•·▪]\s*/,'');
+    const sentence=/[.!?。](\s|$)/.test(line.replace(md,''))||/(요|다)[.!]?\s*$/.test(line);
+    for(let p of sentence?line.split(/(?<=[.!?。])\s+/):line.split(/\s*[,，、]\s*/)){
+      let url=null;p=p.trim().replace(md,(_,t,u)=>{url=url||u;return t}).replace(bare,u=>{url=url||u;return ''}).replace(/[.。]$/,'').trim();
+      if(url&&(!p||/^(github|link|링크|여기|here)$/i.test(p))&&out.length&&!out[out.length-1].url){out[out.length-1].url=url;continue}
+      if(!p&&url)p=url.replace(/^https?:\/\//,'').slice(0,40);
+      if(p&&out.length<20)out.push(url?{id:uid(),text:p.slice(0,80),url}:{id:uid(),text:p.slice(0,80)})}
+    return out}
+  let daily=null,count=null,units=null,last=null,cur=null;const days=[],loose=[];
+  for(const line of lines){let m;
+    if(/^(→|->|=>)/.test(line))continue;
+    if(m=line.match(/^(?:매일|every\s*day|daily)\s*[:：]\s*(.+)$/i)){daily=items(m[1]);continue}
+    if(m=line.match(/^(?:기간|length|days)\s*[:：]\s*(\d{1,3})/i)){count=+m[1];continue}
+    if(m=line.match(/^(?:범위|units?|chapters?)\s*[:：]\s*(.+)$/i)){units=items(m[1]);continue}
+    if(m=line.match(/^(?:마지막\s*날|last\s*day)\s*[:：]\s*(.+)$/i)){last=items(m[1]);continue}
+    if(m=line.match(/^(?:day|데이)\s*(\d{1,3})(?!\d)\s*[:：.)\-–]?\s*(.*)$/i)||line.match(/^(\d{1,3})\s*(?:일차|일째)\s*[:：.)\-–]?\s*(.*)$/)){cur={t:m[2].trim(),items:[]};days.push(cur);continue}
+    if(cur){if(cur.items.length<20)cur.items.push(...items(line).slice(0,20-cur.items.length))}else loose.push(line)}
+  for(const d of days){const i=d.t.search(/[:：]/);
+    if(!d.items.length&&i>0){d.items=items(d.t.slice(i+1));d.t=d.t.slice(0,i).trim()}
+    else if(!d.items.length&&d.t){d.items=items(d.t);if(d.items.length>1)d.t=''}
+    d.t=d.t.slice(0,40)}
+  const span=validDate(o.start)&&validDate(o.end)?dayDiff(o.start,o.end):null;
+  if(!days.length&&daily&&daily.length){const n=Math.max(1,Math.min(120,count||o.count||(span!=null&&span>=0?span+1:21)));
+    for(let i=0;i<n;i++)days.push({t:'',items:daily.map(x=>({...x,id:uid()}))})}
+  else if(!days.length&&units&&units.length){const n=Math.max(1,Math.min(120,span&&span>0?span:units.length+(last?1:0))),content=last?Math.max(1,n-1):n;
+    for(let i=0;i<content;i++)days.push({t:'',items:[]});
+    units.forEach((u,i)=>days[Math.floor(i*content/units.length)].items.push(u));
+    for(const d of days)if(!d.items.length)d.items=[{id:uid(),text:T('복습','Review')}];
+    if(last&&n>1)days.push({t:T('마지막 날','Final day'),items:last})}
+  else if(!days.length)for(const line of loose)days.push({t:'',items:items(line)});
+  return {days:days.filter(d=>d.items.length||d.t).slice(0,120)}}
+function makeChallenge(o){
+  const c={id:uid(),title:String(o.title||'').trim().slice(0,40)||T('나의 챌린지','My challenge'),start:validDate(o.start)?o.start:key(today()),end:validDate(o.end)?o.end:null,
+    mode:o.mode==='shift'?'shift':'fixed',vessel:VESSELS.includes(o.vessel)?o.vessel:'beaker',days:o.days,checks:{}};
+  S.challenges.push(c);save();renderChallenges();return c}
+function chToggle(cid,iid,want){const c=S.challenges.find(x=>x.id===cid);if(!c)return null;if(!c.checks||typeof c.checks!=='object')c.checks={};
+  const on=want==null?!c.checks[iid]:!!want,was=!!c.checks[iid];if(on===was)return c;
+  if(on)c.checks[iid]=key(today());else delete c.checks[iid];save();renderChallenges();
+  if(on){const d=c.days.findIndex(x=>x.items.some(it=>it.id===iid));
+    toast(d>=0&&chDayPct(c,d)>=1?T(`Day ${d+1} 완료! 그릇이 가득 찼어요 🎉`,`Day ${d+1} complete! Filled to the brim 🎉`):T('완료!','Done!'));L.celebrate()}
+  return c}
+function openLink(url){url=String(url||'');if(!/^https?:\/\//i.test(url))return;
+  if(NATIVE)window.webkit.messageHandlers.native.postMessage({action:'openURL',url});else window.open(url,'_blank','noopener')}
+const chView={};let chEditing=null;
+function chCard(c){const now=chNow(c);if(!now)return '';const tk=key(today()),ch=c.checks||{};
+  const v=Math.max(0,Math.min(c.days.length-1,chView[c.id]??now.idx)),day=c.days[v],pct=chDayPct(c,v);
+  const shown=[...day.items.filter(it=>!ch[it.id]),...day.items.filter(it=>ch[it.id])];
+  const dd=now.left==null?'':now.left>0?`D-${now.left}`:now.left===0?'D-day':`D+${-now.left}`;
+  const late=now.eta&&validDate(c.end)&&now.eta>c.end;
+  const sub=now.state==='upcoming'?T(`${dayDiff(tk,c.start)}일 뒤 시작`,`starts in ${dayDiff(tk,c.start)} days`):now.state==='finished'?T('완주! 🎉','Finished! 🎉'):v===now.idx?T('오늘','today'):v<now.idx?T('지난 Day','earlier day'):T('미리 보기','preview');
+  const row=(it,label)=>`<li data-i="${it.id}" class="${ch[it.id]?'done':''}"><button type="button" class="ck" aria-label="${esc(it.text)} ${ch[it.id]?T('완료 취소','undo'):T('완료','done')}">${ch[it.id]?'✓':''}</button><span class="tx">${label?`<em>${label}</em> `:''}${esc(it.text)}</span>${it.url?`<button type="button" class="ch-link" data-url="${esc(it.url)}" aria-label="${T('링크 열기','Open link')}" title="${esc(it.url)}">↗</button>`:''}</li>`;
+  let behind='';
+  if(v===now.idx&&now.behind){const rows=[];c.days.slice(0,now.state==='finished'?c.days.length:now.idx).forEach((d,i)=>d.items.forEach(it=>{if(!ch[it.id])rows.push(row(it,'D'+(i+1)))}));
+    behind=`<details class="ch-behind"><summary>${T(`밀린 항목 ${now.behind}개`,`${now.behind} left from earlier days`)}</summary><ul>${rows.join('')}</ul></details>`}
+  return `<section class="tl ch frost" data-c="${c.id}">
+    <div class="ch-head"><span class="vs-big" title="${Math.round(pct*100)}%">${vesselSVG(c.vessel,pct)}</span>
+      <div>${chEditing===c.id?`<input class="ch-name-in" value="${esc(c.title)}" maxlength="40" aria-label="${T('챌린지 이름','Challenge name')}">`:`<span class="ch-name" tabindex="0" title="${T('눌러서 이름 바꾸기','Click to rename')}">${esc(c.title)}</span>`}
+        <span class="ch-sub">Day ${v+1}/${c.days.length}${day.t?' · '+esc(day.t):''} · ${sub}</span></div>
+      <span class="ch-pct">${Math.round(pct*100)}%</span></div>
+    ${dd||late?`<div class="ch-badges">${dd?`<span class="ch-badge">${dd}</span>`:''}${late?`<span class="ch-badge late">${T(`이대로면 ${mdOf(now.eta)}에 끝나요 · 마감 ${mdOf(c.end)}`,`At this pace: done ${mdOf(now.eta)} · due ${mdOf(c.end)}`)}</span>`:''}</div>`:''}
+    <div class="ch-days">${c.days.map((d,i)=>{const p=chDayPct(c,i);return `<button type="button" class="ch-day${i===v?' on':''}${i===now.idx&&now.state==='active'?' today':''}" data-day="${i}" title="Day ${i+1}${d.t?' · '+esc(d.t):''} · ${Math.round(p*100)}%" aria-label="Day ${i+1} ${Math.round(p*100)}%">${vesselSVG(c.vessel,p)}<b>${i+1}</b></button>`}).join('')}</div>
+    <ul>${shown.map(it=>row(it)).join('')||`<li class="ch-empty">${T('쉬는 날이에요','Rest day')}</li>`}</ul>
+    ${behind}
+    <div class="ch-foot"><button type="button" class="ch-mode">${c.mode==='shift'?T('못 끝내면: 밀기','If unfinished: wait'):T('못 끝내면: 날짜 고정','If unfinished: keep dates')}</button><button type="button" class="ch-vs">${vesselName(c.vessel)}</button><button type="button" class="ch-del">${T('챌린지 지우기','Delete challenge')}</button></div>
+  </section>`}
+function renderChallenges(){
+  const box=$('chs'),open=[...box.querySelectorAll('details[open]')].map(d=>d.closest('.ch')?.dataset.c);
+  box.innerHTML=S.challenges.filter(c=>!c.archived).map(chCard).join('')+`<button type="button" class="ch-new" id="ch-add">＋ ${T('챌린지 만들기','New challenge')}<small>${T('30일 운동 · 시험 D-day · 매일 습관 · 직접 붙여넣기','30-day workout · exam countdown · daily habit · paste your own')}</small></button>`;
+  for(const id of open)box.querySelector(`.ch[data-c="${id}"] details`)?.setAttribute('open','');
+  box.querySelectorAll('.ch-days').forEach(s=>{const on=s.querySelector('.on');if(on)s.scrollLeft=Math.max(0,on.offsetLeft-s.clientWidth/2)});
+  const ed=box.querySelector('.ch-name-in');if(ed){ed.focus();ed.select();
+    const finish=ok=>{if(chEditing==null)return;const c=S.challenges.find(x=>x.id===chEditing);chEditing=null;const v=ed.value.trim();if(ok&&c&&v&&v!==c.title){c.title=v.slice(0,40);save()}renderChallenges()};
+    ed.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();finish(true)}else if(e.key==='Escape')finish(false)};ed.onblur=()=>finish(true)}
+  lesserVessel()}
+function lesserVessel(){const el=$('lesser-vessel'),a=chActive();if(!a){el.hidden=true;el.innerHTML='';return}
+  el.hidden=false;el.innerHTML=vesselSVG(a.c.vessel,a.now.pct)+`<i>${Math.round(a.now.pct*100)}%</i>`}
+$('chs').addEventListener('click',e=>{const t=e.target;
+  if(t.closest('#ch-add')){openChallengeSheet();return}
+  const card=t.closest('.ch'),c=card&&S.challenges.find(x=>x.id===card.dataset.c);if(!c)return;
+  const link=t.closest('.ch-link');if(link){openLink(link.dataset.url);return}
+  const li=t.closest('li[data-i]');if(li&&(t.closest('.ck')||t.closest('.tx'))){chToggle(c.id,li.dataset.i);return}
+  const d=t.closest('.ch-day');if(d){chView[c.id]=+d.dataset.day;renderChallenges();return}
+  if(t.closest('.ch-name')){chEditing=c.id;renderChallenges();return}
+  if(t.closest('.ch-mode')){c.mode=c.mode==='shift'?'fixed':'shift';delete chView[c.id];save();renderChallenges();
+    toast(c.mode==='shift'?T('못 끝낸 Day는 끝낼 때까지 그대로 있어요','Unfinished days wait until you finish them'):T('Day는 날짜대로 넘어가고, 못 한 건 밀린 항목으로 남아요','Days follow the calendar; leftovers stay in the backlog'));return}
+  if(t.closest('.ch-vs')){c.vessel=VESSELS[(VESSELS.indexOf(c.vessel)+1)%VESSELS.length];save();renderChallenges();return}
+  const del=t.closest('.ch-del');if(del){
+    if(!del.classList.contains('armed')){del.classList.add('armed');del.textContent=T('한 번 더 누르면 지워져요','Click again to delete');setTimeout(()=>{if(del.isConnected){del.classList.remove('armed');del.textContent=T('챌린지 지우기','Delete challenge')}},3000);return}
+    S.challenges=S.challenges.filter(x=>x!==c);save();renderChallenges();toast(T('챌린지를 지웠어요','Challenge deleted'))}});
+$('chs').addEventListener('keydown',e=>{if(e.target.matches('.ch-name')&&(e.key==='Enter'||e.key===' ')){e.preventDefault();chEditing=e.target.closest('.ch').dataset.c;renderChallenges()}});
+window.hanjuShowChallenge=()=>{const el=document.querySelector('.ch')||$('ch-add');el.scrollIntoView({behavior:'smooth',block:'center'})};
+
+/* 챌린지 만들기: 템플릿을 고르면 이름·그릇·내용이 채워지고, 내용은 고쳐 쓰거나 붙여넣어요 */
+function chTemplates(){const tk=key(today());return {
+  paste:{label:T('직접 붙여넣기','Paste your own'),title:'',vessel:'beaker',end:'',text:''},
+  workout:{label:T('30일 운동','30-day workout'),title:T('30일 운동 챌린지','30-day workout'),vessel:'bottle',end:'',
+    text:[...Array(30)].map((_,i)=>(i+1)%7===0?`Day ${i+1}: ${T('쉬는 날 스트레칭 10분','Rest day: stretch 10 min')}`:`Day ${i+1}: ${T(`스쿼트 ${20+i*2}개, 플랭크 ${30+i*5}초`,`${20+i*2} squats, ${30+i*5}s plank`)}`).join('\n')},
+  exam:{label:T('시험 D-day','Exam countdown'),title:T('시험 공부','Exam prep'),vessel:'beaker',end:addDays(tk,14),
+    text:T('범위: 1단원, 2단원, 3단원, 4단원, 5단원, 6단원\n마지막 날: 총복습, 틀린 문제 다시 보기','Units: Unit 1, Unit 2, Unit 3, Unit 4, Unit 5, Unit 6\nLast day: Full review, Redo mistakes')},
+  habit:{label:T('매일 습관','Daily habit'),title:T('21일 습관','21-day habit'),vessel:'pot',end:'',
+    text:T('매일: 물 2L, 스트레칭 10분, 책 10쪽\n기간: 21일','Every day: Drink 2L water, Stretch 10 min, Read 10 pages\nDays: 21')}}}
+function openChallengeSheet(){
+  let el=$('ch-sheet');if(!el){el=document.createElement('div');el.id='ch-sheet';el.className='sheet';document.body.appendChild(el)}
+  const tpl=chTemplates(),tk=key(today());
+  el.innerHTML=`<form id="ch-form" role="dialog" aria-modal="true" aria-labelledby="ch-sheet-title">
+    <header><b id="ch-sheet-title">${T('챌린지 만들기','New challenge')}</b><button type="button" id="ch-close" aria-label="${T('닫기','Close')}">✕</button></header>
+    <div class="ch-tpl">${Object.entries(tpl).map(([k,v])=>`<button type="button" data-t="${k}" aria-pressed="${k==='paste'}">${v.label}</button>`).join('')}</div>
+    <label><span>${T('이름','Name')}</span><input id="ch-title" maxlength="40" placeholder="${T('예: PCCP 10일 완성','e.g. 10-day exam sprint')}"></label>
+    <div class="row2"><label><span>${T('시작일','Starts')}</span><input type="date" id="ch-start" value="${tk}"></label><label><span>${T('마감·시험일 (선택)','Due / exam date (optional)')}</span><input type="date" id="ch-end"></label></div>
+    <div class="row2"><label><span>${T('못 끝낸 날은','If a day is unfinished')}</span><select id="ch-mode"><option value="fixed">${T('날짜 고정 · %로 남기기','Keep dates · record %')}</option><option value="shift">${T('밀기 · 끝낼 때까지','Wait · until finished')}</option></select></label>
+      <label><span>${T('레서가 들 그릇','What Lesser carries')}</span><select id="ch-vessel">${VESSELS.map(v=>`<option value="${v}">${vesselName(v)}</option>`).join('')}</select></label></div>
+    <label><span>${T('내용','Plan')}</span><textarea id="ch-text" placeholder="${T('Day 1 워밍업\n하샤드 수, 같은 숫자는 싫어, K번째수\nDay 2 구현\n키패드 누르기, 공원 산책\n\n머리글 없이 한 줄에 하루씩 써도 돼요.','Day 1 Warm-up\nItem one, item two, item three\nDay 2 Practice\nItem four, item five\n\nOr just one line per day.')}"></textarea></label>
+    <p class="ch-preview" id="ch-preview"></p>
+    <button type="submit" class="go">${T('만들기','Create')}</button></form>`;
+  el.hidden=false;const f=$('ch-form'),close=()=>{el.hidden=true;el.innerHTML=''};
+  const preview=()=>{const p=parseChallenge($('ch-text').value,{start:$('ch-start').value,end:$('ch-end').value}),n=p.days.reduce((a,d)=>a+d.items.length,0);
+    $('ch-preview').textContent=p.days.length?T(`${p.days.length}일 · 항목 ${n}개`,`${p.days.length} days · ${n} items`)+(p.days[0]?`\nDay 1: ${p.days[0].items.map(x=>x.text).slice(0,4).join(', ')}${p.days[0].items.length>4?' …':''}`:''):T('내용을 쓰면 여기에 Day가 나와요','Your days will show up here');return p};
+  el.querySelectorAll('.ch-tpl button').forEach(b=>b.onclick=()=>{const t=tpl[b.dataset.t];el.querySelectorAll('.ch-tpl button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+    $('ch-title').value=t.title;$('ch-vessel').value=t.vessel;$('ch-end').value=t.end;$('ch-text').value=t.text;preview()});
+  for(const id of ['ch-text','ch-start','ch-end'])$(id).addEventListener('input',preview);
+  $('ch-close').onclick=close;el.onclick=e=>{if(e.target===el)close()};f.onkeydown=e=>{if(e.key==='Escape')close()};
+  f.onsubmit=e=>{e.preventDefault();const p=preview();if(!p.days.length){toast(T('내용에 Day를 하나 이상 써 주세요','Add at least one day'));$('ch-text').focus();return}
+    const c=makeChallenge({title:$('ch-title').value,start:$('ch-start').value,end:$('ch-end').value,mode:$('ch-mode').value,vessel:$('ch-vessel').value,days:p.days});
+    close();toast(T(`${p.days.length}일 챌린지를 만들었어요`,`Created a ${p.days.length}-day challenge`));
+    setTimeout(()=>document.querySelector(`.ch[data-c="${c.id}"]`)?.scrollIntoView({behavior:'smooth',block:'center'}),50)};
+  preview();setTimeout(()=>$('ch-title').focus(),0)}
 function toggle(id,quiet){const b=find(id);if(!b)return;if(b.fixed){toast(T('매주 고정 일정이에요 · 끌어서 옮기거나 휴지통으로 지워요','Repeats weekly · drag to move or delete'));return}b.done=!b.done;if(b.done&&b.date===key(today()))L.celebrate();save();render(null,b.done?id:null);
   if(b.done&&!quiet){const mine=S.blocks.filter(x=>x.date===b.date);toast(mine.every(x=>x.done)?T(dayName(b.date)+'요일 클리어!',dayName(b.date)+' cleared!'):T('완료!','Done!'))}
   board.querySelector(`[data-id="${id}"]`)?.focus({preventScroll:true})}
@@ -567,7 +806,8 @@ $('m-light').onclick=()=>{S.theme='light';save();applyMode()};
 $('m-saver').onclick=()=>{S.theme='saver';save();applyMode();toast(T('절전 모드: 어두운 화면','Dark mode enabled'))};
 $('lesser-toggle').onclick=()=>{S.lesser=!S.lesser;save();applyMode()};
 $('roll-toggle').onclick=()=>{S.rollover=S.rollover===false;save();render();toast(S.rollover?T('못 끝낸 블록을 다음 날로 넘겨요','Unfinished blocks move to the next day'):T('못 끝낸 블록을 그 날짜에 그대로 둬요','Unfinished blocks stay on their day'))};
-setInterval(()=>{if(!drag&&rollOver()){save();render()}},60000);   // 자정이 지나면
+let shownDay=key(today());
+setInterval(()=>{if(drag)return;if(rollOver()){save();render()}else if(shownDay!==key(today())){shownDay=key(today());render()}},60000);   // 자정이 지나면
 
 /* ---------- 레서: PlanLess companion.js의 그림·시선·깜빡임 로직을 그대로 옮김 ---------- */
 const L=(()=>{
@@ -682,8 +922,20 @@ function toolStats(a){ // 계획 분석: 빈도, 시간 분포, 완료율
     by_weekday:wd.map((v,i)=>({day:dn[i],planned_minutes:v.planned,done_minutes:v.done})),
     by_time_of_day:hours,busiest_day:busiest?{date:busiest[0],minutes:busiest[1]}:null,often_unfinished:missed,
     todos:{today:todosOf('day').length,today_done:todosOf('day').filter(todoDone).length,week:todosOf('week').length,week_done:todosOf('week').filter(todoDone).length}}}
+function chInfo(c){const now=chNow(c);if(!now)return null;const ch=c.checks||{};
+  return {id:c.id,title:c.title,state:now.state,mode:c.mode==='shift'?'wait_until_finished':'keep_dates',vessel:c.vessel,start:c.start,end:c.end||null,day:now.idx+1,days:c.days.length,day_title:now.day.t||'',
+    today_percent:Math.round(now.pct*100),behind_items:now.behind,today_items:now.items.map(it=>({id:it.id,text:it.text,done:!!ch[it.id]}))}}
+function toolChallenges(){return {challenges:S.challenges.filter(c=>!c.archived).map(chInfo).filter(Boolean)}}
+function toolNewChallenge(a){const start=validDate(a.start)?a.start:key(today()),end=validDate(a.end)?a.end:null,p=parseChallenge(a.text,{start,end,count:+a.days||null});
+  if(!p.days.length)return {error:T('글에서 Day를 하나도 못 찾았어요','No days found in the text')};
+  const c=makeChallenge({title:a.title,start,end,mode:/shift|wait|밀/.test(String(a.mode||''))?'shift':'fixed',vessel:a.vessel,days:p.days});return {ok:true,challenge:chInfo(c)}}
+function toolCheckChallenge(a){const q=String(a.text||'').trim().toLowerCase(),pool=[];
+  for(const c of S.challenges){if(c.archived)continue;const now=chNow(c);if(!now)continue;pool.push(...now.items.map(it=>[c,it]));c.days.forEach(d=>pool.push(...d.items.map(it=>[c,it])))}
+  const hit=pool.find(([,it])=>it.id===a.id)||pool.find(([,it])=>it.text.toLowerCase()===q)||pool.find(([,it])=>q&&it.text.toLowerCase().includes(q));
+  if(!hit)return {error:T('그 챌린지 항목을 못 찾았어요','Could not find that challenge item')};
+  const c=chToggle(hit[0].id,hit[1].id,a.done!==false);return {ok:true,item:hit[1].text,done:!!(c.checks||{})[hit[1].id],challenge:chInfo(c)}}
 window.hanjuTool=(name,args)=>{let r;try{const a=typeof args==='string'?JSON.parse(args||'{}'):(args||{});
-  const f={list_blocks:toolList,add_block:toolAdd,set_done:toolDone,move_block:toolMove,list_todos:toolTodos,add_todo:toolAddTodo,check_todo:toolCheckTodo,plan_stats:toolStats}[name];r=f?f(a||{}):{error:'unknown tool '+name}}catch(e){r={error:String(e&&e.message||e)}}return JSON.stringify(r)};
+  const f={list_blocks:toolList,add_block:toolAdd,set_done:toolDone,move_block:toolMove,list_todos:toolTodos,add_todo:toolAddTodo,check_todo:toolCheckTodo,plan_stats:toolStats,list_challenges:toolChallenges,create_challenge:toolNewChallenge,check_challenge_item:toolCheckChallenge}[name];r=f?f(a||{}):{error:'unknown tool '+name}}catch(e){r={error:String(e&&e.message||e)}}return JSON.stringify(r)};
 
 const Chat=(()=>{
   const box=$('chat'),log=$('chat-log'),input=$('chat-input'),send=$('chat-send');
@@ -692,9 +944,14 @@ const Chat=(()=>{
   function bubble(kind,text){const d=document.createElement('div');d.className='msg '+(kind==='lesser'?'bot':kind==='typing lesser'?'typing bot':kind);d.textContent=text;log.appendChild(d);log.scrollTop=log.scrollHeight;return d}
   function say(kind,text){bubble(kind,text);if(kind==='me')$('chat-hints').hidden=true;if(kind==='me'||kind==='lesser'){turns.push({role:kind,text});turns=turns.slice(-16)}}
   function context(){const k=key(today()),d=new Date();return {today:k,weekday:dayName(k),now:clock(d.getHours()*6+Math.floor(d.getMinutes()/10)),language:language(),character:L.name(),
-    today_blocks:toolList({from:k,to:k}).blocks,todos:toolTodos(),stats_4_weeks:(({planned_minutes,done_minutes,completion_rate,avg_planned_minutes_per_day,top_tasks,by_time_of_day,often_unfinished})=>({planned_minutes,done_minutes,completion_rate,avg_planned_minutes_per_day,top_tasks:top_tasks.slice(0,5),by_time_of_day,often_unfinished}))(toolStats({})),week:toolList({from:key(weekDates(0)[0]),to:key(weekDates(0)[6])}).blocks.filter(b=>!b.repeat_weekly).map(b=>({name:b.name,date:b.date,done:b.done}))}}
+    today_blocks:toolList({from:k,to:k}).blocks,todos:toolTodos(),challenges:toolChallenges().challenges,stats_4_weeks:(({planned_minutes,done_minutes,completion_rate,avg_planned_minutes_per_day,top_tasks,by_time_of_day,often_unfinished})=>({planned_minutes,done_minutes,completion_rate,avg_planned_minutes_per_day,top_tasks:top_tasks.slice(0,5),by_time_of_day,often_unfinished}))(toolStats({})),week:toolList({from:key(weekDates(0)[0]),to:key(weekDates(0)[6])}).blocks.filter(b=>!b.repeat_weekly).map(b=>({name:b.name,date:b.date,done:b.done}))}}
   function scripted(text){ // AI가 없을 때: 오늘 계획을 보고 정해진 말로 대답해요
     const k=key(today()),mine=S.blocks.filter(b=>b.date===k),left=mine.filter(b=>!b.done),q=String(text||'');
+    if((q.match(/(?:day|데이)\s*\d+/gi)||[]).length>=2||/^(매일|범위)\s*[:：]/m.test(q)){const r=toolNewChallenge({text:q});
+      return r.ok?T(`${r.challenge.days}일짜리 챌린지를 만들었어! 오늘은 Day ${r.challenge.day}. 아래 챌린지 칸에서 이름·방식·그릇을 바꿀 수 있어.`,`Made a ${r.challenge.days}-day challenge! Today is Day ${r.challenge.day}. Rename it or change the mode and vessel on its card below.`):r.error}
+    if(/챌린지|challenge|코스|진도/i.test(q)){const a=chActive();if(!a)return T('진행 중인 챌린지가 없어. 아래 "챌린지 만들기"로 시작하거나 Day 1, Day 2… 계획을 그대로 붙여넣어 줘!','No challenge running. Start one with "New challenge" below, or paste a Day 1, Day 2… plan here!');
+      const ch=a.c.checks||{},rest=a.now.items.filter(it=>!ch[it.id]);
+      return T(`${a.c.title} Day ${a.now.idx+1}/${a.now.n}, 오늘 ${Math.round(a.now.pct*100)}% 찼어.`,`${a.c.title} Day ${a.now.idx+1}/${a.now.n}, ${Math.round(a.now.pct*100)}% full today.`)+(rest.length?T('\n남은 것:\n','\nLeft:\n')+rest.map(it=>'· '+it.text).join('\n'):T(' 오늘 그릇 가득! 🎉',' Full today! 🎉'))+(a.now.behind?T(`\n밀린 항목도 ${a.now.behind}개 있어.`,`\nPlus ${a.now.behind} from earlier days.`):'')}
     if(/남|뭐\s*해|할\s*일|오늘|todo|left|today/i.test(q)){if(!mine.length)return T('오늘은 쌓은 블록이 없어! 위에서 하나 쌓아 볼까?','Nothing stacked today! Want to add one above?');
       if(!left.length)return T(`오늘 ${mine.length}개 다 끝냈어! 클리어 🎉`,`All ${mine.length} done today! Cleared 🎉`);
       return T(`오늘 남은 건 ${left.length}개야:\n`,`${left.length} left today:\n`)+left.sort((a,b)=>a.start-b.start).map(b=>`· ${hm(b.start)} ${b.name}`).join('\n')}
@@ -726,7 +983,7 @@ const Chat=(()=>{
     else lines.push(T('브라우저에서는 대본 레서만 돼요. 앱에서 AI를 쓸 수 있어요.','In the browser only scripted replies work. Use the app for AI.'));
     if(keyed)lines.push(T('API 키를 쓰면 대화와 계획 일부가 그 회사로 보내지고, 요금은 키 주인에게 나가요.','With an API key, the chat and parts of your plan are sent to that provider and billed to your key.'));
     $('ai-status').textContent=lines.join('\n');$('ai-status').style.whiteSpace='pre-line'}
-  function hints(){$('chat-hints').innerHTML='';for(const h of T(['오늘 뭐 남았어?','내 계획 분석해줘','다음 주 계획 같이 세워줘','오늘 할 일에 물 2L 추가해줘'],["What's left today?",'Analyze my plan','Help me plan next week','Add "drink water" to today\'s to-dos'])){const b=document.createElement('button');b.type='button';b.textContent=h;b.onclick=()=>ask(h);$('chat-hints').appendChild(b)}}
+  function hints(){$('chat-hints').innerHTML='';for(const h of T(['오늘 뭐 남았어?','내 계획 분석해줘','다음 주 계획 같이 세워줘','오늘 할 일에 물 2L 추가해줘','챌린지 어디까지 했어?'],["What's left today?",'Analyze my plan','Help me plan next week','Add "drink water" to today\'s to-dos','How is my challenge going?'])){const b=document.createElement('button');b.type='button';b.textContent=h;b.onclick=()=>ask(h);$('chat-hints').appendChild(b)}}
   function open(on){box.hidden=!on;if(on){if(!log.children.length){say('lesser',T(`안녕! 나는 ${L.name()}야. 계획 얘기든 그냥 수다든 말 걸어 줘.`,`Hi! I'm ${L.name()}. Talk to me about your plan, or anything.`))}hints();
       if(NATIVE)window.webkit.messageHandlers.native.postMessage({action:'aiStatus'});paint();setTimeout(()=>input.focus(),0)}}
   window.hanjuChatToggle=()=>open(box.hidden);
@@ -744,6 +1001,7 @@ const Chat=(()=>{
   box.addEventListener('keydown',e=>{if(e.key==='Escape')open(false)});
   return {open};
 })();
+window.hanjuOpenChat=()=>Chat.open(true);
 
 applyMode();render();
 if(window.pendingDate){showDate(window.pendingDate)}

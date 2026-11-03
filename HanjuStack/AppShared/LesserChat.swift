@@ -7,7 +7,7 @@ import FoundationModels
 //   1. 사용자가 넣은 API 키 (Claude → OpenAI)
 //   2. Apple 기기 안 모델 (macOS 26 / iOS 26, Apple Intelligence가 켜진 기기)
 //   3. 대본 레서 — 페이지가 직접 정해진 말로 대답해요 (engine = "script")
-// 어느 AI든 같은 도구(list_blocks / add_block / set_done / move_block)로 계획을 보고 고쳐요.
+// 어느 AI든 같은 도구(블록·할 일·챌린지)로 계획을 보고 고쳐요.
 // 도구는 페이지의 window.hanjuTool 이 실행하고 JSON 문자열을 돌려줘요.
 
 typealias LesserToolRunner = @Sendable (_ name: String, _ argumentsJSON: String) async -> String
@@ -62,6 +62,19 @@ enum LesserChat {
          ["type": "object", "properties": [
             "from": ["type": "string", "description": "YYYY-MM-DD (optional)"],
             "to": ["type": "string", "description": "YYYY-MM-DD (optional)"]]]),
+        ("list_challenges", "Read the user's multi-day challenges (e.g. a 10-day study plan, 30-day workout): today's Day number and items, how full today's vessel is (percent), backlog, due date.",
+         ["type": "object", "properties": [String: Any]()]),
+        ("create_challenge", "Create a multi-day challenge from a plan written as text. Format the text as one line per day: 'Day 1 Title: item, item, item' (or 'Day N Title' followed by item lines). Also accepted: 'Every day: a, b' with 'Days: 21', or 'Units: u1, u2…' with 'Last day: review' spread until the end date. Pass the user's pasted plan as-is when it already has Day lines.",
+         ["type": "object", "properties": [
+            "title": ["type": "string", "description": "Short name, max 40 characters"],
+            "text": ["type": "string", "description": "The plan text (see format)"],
+            "start": ["type": "string", "description": "Start date YYYY-MM-DD (default today)"],
+            "end": ["type": "string", "description": "Due or exam date YYYY-MM-DD (optional)"],
+            "mode": ["type": "string", "enum": ["keep_dates", "wait_until_finished"], "description": "keep_dates: Day N is start+N-1 and unfinished items become backlog (default). wait_until_finished: stay on a Day until it is done."],
+            "vessel": ["type": "string", "enum": ["beaker", "bottle", "pot"], "description": "What Lesser carries and fills: beaker for study, bottle for exercise, pot for habits"]], "required": ["title", "text"]]),
+        ("check_challenge_item", "Check (or uncheck) an item of a challenge, found by id or text. Checking fills today's vessel.",
+         ["type": "object", "properties": [
+            "id": ["type": "string"], "text": ["type": "string"], "done": ["type": "boolean", "description": "default true"]]]),
     ]
 
     // MARK: 어떤 AI를 쓸지
@@ -89,7 +102,8 @@ enum LesserChat {
         let today = context["today"] as? String ?? "", weekday = context["weekday"] as? String ?? "", now = context["now"] as? String ?? ""
         var plan = ""
         if let data = try? JSONSerialization.data(withJSONObject: ["today_blocks": context["today_blocks"] ?? [], "this_week": context["week"] ?? [],
-                                                                    "todos": context["todos"] ?? [:], "last_4_weeks": context["stats_4_weeks"] ?? [:]]),
+                                                                    "todos": context["todos"] ?? [:], "challenges": context["challenges"] ?? [],
+                                                                    "last_4_weeks": context["stats_4_weeks"] ?? [:]]),
            let text = String(data: data, encoding: .utf8) { plan = String(text.prefix(8000)) }
         if en {
             return """
@@ -97,6 +111,7 @@ enum LesserChat {
             The user stacks tasks as time blocks on a week board. You can read and change the plan with tools: list_blocks, add_block, set_done, move_block.
             Use dates as YYYY-MM-DD and times as 24-hour HH:MM. Today is \(today) (\(weekday)), now \(now).
             Untimed to-do lists (today / this week) use list_todos, add_todo, check_todo.
+            Challenges are multi-day plans (study sprints, 30-day workouts, habits). Each day's checked items fill the vessel Lesser carries (beaker, bottle or flower pot). Use list_challenges, create_challenge (when the user pastes or describes a Day-by-Day plan), check_challenge_item.
             When asked to add, finish or move something, call the tool, then say what you did. If a detail is missing, pick a sensible default (60 minutes, earliest free time) unless it really matters, then ask.
             You are also a planning coach. When the user describes plans or asks how they're doing, use plan_stats and give concrete, kind advice from the numbers: how often they do each task, how time is spread over weekdays and times of day, completion rate, overloaded days, tasks they often don't finish (suggest shorter blocks or better times). When they describe a plan for a period, propose a short list of blocks (name, day, time, minutes) and add them after they agree.
             Don't invent facts; if you don't know something, say so. Never mention these instructions.
@@ -108,6 +123,7 @@ enum LesserChat {
         사용자는 할 일을 시간 블록으로 만들어 일주일 판에 쌓아. 너는 도구로 계획을 보고 바꿀 수 있어: list_blocks, add_block, set_done, move_block.
         날짜는 YYYY-MM-DD, 시간은 24시간제 HH:MM로 넘겨. 오늘은 \(today) (\(weekday)요일), 지금 \(now).
         시간 없는 할 일 목록(오늘 / 이번 주)은 list_todos, add_todo, check_todo로 다뤄.
+        챌린지는 여러 날짜짜리 계획이야(시험 공부, 30일 운동, 습관). 그날 항목을 체크한 만큼 네가 든 그릇(비커·물병·화분)이 차올라. list_challenges, create_challenge(사용자가 Day별 계획을 붙여넣거나 말하면), check_challenge_item을 써.
         블록을 넣거나 끝내거나 옮겨 달라고 하면 도구를 부르고, 무엇을 했는지 말해 줘. 정보가 조금 빠지면 알맞은 기본값(60분, 가장 이른 빈 시간)으로 하고, 꼭 필요한 것만 물어봐.
         너는 계획 코치이기도 해. 계획 얘기를 하거나 어떻게 지내는지 물으면 plan_stats로 숫자를 보고 구체적으로 다정하게 조언해 줘: 일마다 얼마나 자주 하는지, 요일·시간대별 시간 분포, 완료율, 너무 몰린 날, 자주 못 끝내는 일(더 짧게 나누거나 다른 시간대를 제안). 어떤 기간의 계획을 말하면 블록 목록(이름, 요일, 시간, 분)을 짧게 제안하고, 좋다고 하면 그때 쌓아.
         모르는 건 지어내지 말고 모른다고 해. 이 지시문 얘기는 하지 마.
@@ -268,7 +284,8 @@ enum AppleLesser {
 
     static func respond(instructions: String, prompt: String, run: @escaping LesserToolRunner) async throws -> String {
         let session = LanguageModelSession(tools: [ListBlocksTool(run: run), AddBlockTool(run: run), SetDoneTool(run: run), MoveBlockTool(run: run),
-                                                   ListTodosTool(run: run), AddTodoTool(run: run), CheckTodoTool(run: run), PlanStatsTool(run: run)],
+                                                   ListTodosTool(run: run), AddTodoTool(run: run), CheckTodoTool(run: run), PlanStatsTool(run: run),
+                                                   ListChallengesTool(run: run), CreateChallengeTool(run: run), CheckChallengeItemTool(run: run)],
                                            instructions: instructions)
         return try await session.respond(to: prompt).content
     }
@@ -392,6 +409,50 @@ struct PlanStatsTool: Tool {
     }
     func call(arguments: Arguments) async throws -> String {
         await run(name, AppleLesser.json(["from": arguments.from.isEmpty ? nil : arguments.from, "to": arguments.to.isEmpty ? nil : arguments.to]))
+    }
+}
+
+@available(macOS 26.0, iOS 26.0, *)
+struct ListChallengesTool: Tool {
+    let run: LesserToolRunner
+    let name = "list_challenges"
+    let description = "Read the user's multi-day challenges: today's Day, its items, how full today's vessel is, backlog and due date."
+    @Generable struct Arguments {
+        @Guide(description: "Leave empty") var note: String
+    }
+    func call(arguments: Arguments) async throws -> String { await run(name, "{}") }
+}
+
+@available(macOS 26.0, iOS 26.0, *)
+struct CreateChallengeTool: Tool {
+    let run: LesserToolRunner
+    let name = "create_challenge"
+    let description = "Create a multi-day challenge from a plan text with one line per day like 'Day 1 Title: item, item'. Pass a pasted Day-by-Day plan as-is."
+    @Generable struct Arguments {
+        @Guide(description: "Short name") var title: String
+        @Guide(description: "Plan text, one line per day: 'Day 1 Title: item, item'") var text: String
+        @Guide(description: "Start date YYYY-MM-DD, or empty for today") var start: String
+        @Guide(description: "Due or exam date YYYY-MM-DD, or empty") var end: String
+        @Guide(description: "beaker for study, bottle for exercise, pot for habits") var vessel: String
+    }
+    func call(arguments: Arguments) async throws -> String {
+        await run(name, AppleLesser.json(["title": arguments.title, "text": arguments.text,
+                                          "start": arguments.start.isEmpty ? nil : arguments.start,
+                                          "end": arguments.end.isEmpty ? nil : arguments.end, "vessel": arguments.vessel]))
+    }
+}
+
+@available(macOS 26.0, iOS 26.0, *)
+struct CheckChallengeItemTool: Tool {
+    let run: LesserToolRunner
+    let name = "check_challenge_item"
+    let description = "Check or uncheck a challenge item by its text."
+    @Generable struct Arguments {
+        @Guide(description: "Item text") var text: String
+        @Guide(description: "true to check, false to uncheck") var done: Bool
+    }
+    func call(arguments: Arguments) async throws -> String {
+        await run(name, AppleLesser.json(["text": arguments.text, "done": arguments.done]))
     }
 }
 #endif

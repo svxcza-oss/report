@@ -51,6 +51,8 @@ struct Board {
     var range = DayRange()
     var language = HanjuLanguage.system
     var dark = false          // 앱의 절전 모드(어두운 화면)
+    var challenges: [[String: Any]] = []   // 챌린지 (오늘의 Day는 그리는 날짜로 정해요)
+    func challenge(at date: Date) -> ChallengeToday? { Challenge.today(challenges, now: date) }
 }
 
 extension View {
@@ -119,6 +121,7 @@ func loadBoard() -> Board {
         }
     }
     board.blocks = weekly + shown
+    board.challenges = root["challenges"] as? [[String: Any]] ?? []
     board.todos = ((root["todos"] as? [[String: Any]]) ?? []).compactMap { r in
         guard let id = r["id"] as? String, let text = r["text"] as? String else { return nil }
         return Todo(id: id, text: text, scope: r["scope"] as? String == "week" ? "week" : "day", doneOn: r["doneOn"] as? String)
@@ -195,6 +198,21 @@ struct ToggleTodoIntent: AppIntent {
                 let period = todoPeriod(row["scope"] as? String == "week" ? "week" : "day", today)
                 if row["doneOn"] as? String == period { row["doneOn"] = NSNull() } else { row["doneOn"] = period }
             }
+        }
+        return .result()
+    }
+}
+
+struct ToggleChallengeItemIntent: AppIntent {
+    static let title: LocalizedStringResource = "챌린지 항목 체크 바꾸기"
+    @Parameter(title: "챌린지") var challengeID: String
+    @Parameter(title: "항목") var itemID: String
+    init() {}
+    init(challengeID: String, itemID: String) { self.challengeID = challengeID; self.itemID = itemID }
+    func perform() async throws -> some IntentResult {
+        let id = challengeID, item = itemID, today = dayKey(Date())
+        try await editPlan { root, now in
+            editRow("challenges", id, in: &root, now: now) { Challenge.toggle(&$0, item: item, today: today) }
         }
         return .result()
     }
@@ -672,28 +690,123 @@ struct TodoSection: View {
     }
 }
 
+// MARK: - 챌린지 칸: 오늘의 Day 항목 + 레서의 그릇(비커·물병·화분)
+
+/// 그릇 그림. 채운 만큼 물이 차거나 새싹이 자라요 (Shared/Challenge.swift의 Vessel).
+struct VesselIcon: View {
+    let kind: String
+    let percent: Double
+    var body: some View {
+        Canvas { ctx, size in
+            let s = min(size.width / 26, size.height / 32)
+            ctx.translateBy(x: (size.width - 26 * s) / 2 + s, y: (size.height - 32 * s) / 2)
+            ctx.scaleBy(x: s, y: s)
+            for l in Vessel.layers(kind, percent) {
+                let shading: GraphicsContext.Shading = l.ink ? .foreground : .color(Color(red: l.r, green: l.g, blue: l.b).opacity(l.a))
+                if l.stroke > 0 {
+                    ctx.stroke(Path(l.path), with: shading, style: StrokeStyle(lineWidth: l.stroke, lineCap: .round, lineJoin: .round))
+                } else {
+                    ctx.fill(Path(l.path), with: shading)
+                }
+            }
+        }
+        .accessibilityLabel("\(Int((percent * 100).rounded()))%")
+    }
+}
+
+struct ChallengeRow: View {
+    let challenge: String
+    let item: ChallengeItem
+    let size: CGFloat
+    var body: some View {
+        Button(intent: ToggleChallengeItemIntent(challengeID: challenge, itemID: item.id)) {
+            HStack(spacing: 6) {
+                Image(systemName: item.done ? "checkmark.square.fill" : "square")
+                    .font(.system(size: size + 3))
+                    .foregroundStyle(item.done ? Color.secondary : blockColor(1))
+                Text(item.text).font(wf(size, .semibold)).lineLimit(1)
+                    .strikethrough(item.done)
+                    .foregroundStyle(item.done ? Color.secondary : Color.primary)
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .invalidatableContent()
+    }
+}
+
+struct ChallengeSection: View {
+    let challenge: ChallengeToday
+    let language: String
+    let limit: Int
+    let size: CGFloat
+    var body: some View {
+        let en = language == "en"
+        let ordered = challenge.items.filter { !$0.done } + challenge.items.filter(\.done)
+        let shown = ordered.count > limit ? Array(ordered.prefix(max(1, limit - 1))) : ordered
+        let dday = challenge.daysLeft.map { $0 > 0 ? "D-\($0)" : $0 == 0 ? "D-day" : "D+\(-$0)" }
+        return VStack(alignment: .leading, spacing: 5) {
+            Link(destination: URL(string: "hanju://challenge")!) {
+                HStack(alignment: .center, spacing: 5) {
+                    VesselIcon(kind: challenge.vessel, percent: challenge.state == "active" ? challenge.percent : 0)
+                        .frame(width: size + 7, height: size + 15)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(challenge.title).font(wf(size + 1, .heavy)).lineLimit(1)
+                        Text(challenge.state == "upcoming" ? (en ? "Starts soon" : "곧 시작")
+                             : challenge.state == "finished" ? (en ? "Finished 🎉" : "완주 🎉")
+                             : "Day \(challenge.index + 1)/\(challenge.count)" + (challenge.dayTitle.isEmpty ? "" : " · \(challenge.dayTitle)"))
+                            .font(wf(size - 2)).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                    Spacer(minLength: 0)
+                    VStack(alignment: .trailing, spacing: 0) {
+                        Text("\(Int((challenge.percent * 100).rounded()))%").font(wf(size + 1, .heavy)).monospacedDigit()
+                        if let dday { Text(dday).font(wf(size - 3)).foregroundStyle(.secondary) }
+                    }
+                }
+            }
+            if challenge.state == "active" {
+                ForEach(shown) { ChallengeRow(challenge: challenge.id, item: $0, size: size) }
+                if ordered.count > shown.count || challenge.behind > 0 {
+                    Text([ordered.count > shown.count ? (en ? "+ \(ordered.count - shown.count) more" : "+ \(ordered.count - shown.count)개 더") : nil,
+                          challenge.behind > 0 ? (en ? "\(challenge.behind) left from earlier" : "밀린 항목 \(challenge.behind)개") : nil]
+                            .compactMap { $0 }.joined(separator: " · "))
+                        .font(wf(size - 2)).foregroundStyle(.secondary)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+}
+
 struct CommonTodoView: View {
     let entry: Entry
     @Environment(\.widgetFamily) var family
     var body: some View {
+        let ch = entry.board.challenge(at: entry.date)
+        let lang = entry.board.language
         Group {
             switch family {
             case .systemSmall:
                 TodoSection(scope: "day", entry: entry, limit: 4, size: 11)
             case .systemMedium:
+                // 챌린지가 있으면 오늘 할 일 | 챌린지, 없으면 오늘 | 이번 주
                 HStack(alignment: .top, spacing: 14) {
                     TodoSection(scope: "day", entry: entry, limit: 4, size: 11)
-                    TodoSection(scope: "week", entry: entry, limit: 4, size: 11)
+                    if let ch { ChallengeSection(challenge: ch, language: lang, limit: 3, size: 11) }
+                    else { TodoSection(scope: "week", entry: entry, limit: 4, size: 11) }
                 }
             case .systemLarge:
-                VStack(alignment: .leading, spacing: 12) {
-                    TodoSection(scope: "day", entry: entry, limit: 7, size: 12)
-                    TodoSection(scope: "week", entry: entry, limit: 6, size: 12)
+                VStack(alignment: .leading, spacing: ch == nil ? 12 : 9) {
+                    TodoSection(scope: "day", entry: entry, limit: ch == nil ? 7 : 4, size: 12)
+                    TodoSection(scope: "week", entry: entry, limit: ch == nil ? 6 : 3, size: 12)
+                    if let ch { ChallengeSection(challenge: ch, language: lang, limit: 5, size: 12) }
                 }
             default:
                 HStack(alignment: .top, spacing: 18) {
                     TodoSection(scope: "day", entry: entry, limit: 12, size: 12)
                     TodoSection(scope: "week", entry: entry, limit: 12, size: 12)
+                    if let ch { ChallengeSection(challenge: ch, language: lang, limit: 11, size: 12) }
                 }
             }
         }
@@ -709,7 +822,7 @@ struct HanjuCommonTodoWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: Provider()) { CommonTodoView(entry: $0) }
             .configurationDisplayName("오늘·이번 주 할 일")
-            .description("시간 없는 할 일 체크리스트. 네모를 누르면 바로 체크되고 아래로 내려가요. + 를 누르면 바로 추가할 수 있어요.")
+            .description("시간 없는 할 일 체크리스트와 챌린지. 네모를 누르면 바로 체크되고 아래로 내려가요. + 를 누르면 바로 추가할 수 있어요.")
             .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge])
     }
 }

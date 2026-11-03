@@ -7,7 +7,7 @@ import Foundation
 /// - 모드·시간 범위·언어 같은 설정은 `_settingsAt`이 늦은 쪽을 따라요.
 /// - 처음 설치해서 생긴 예시 블록뿐인 계획은 진짜 계획과 섞지 않아요.
 enum PlanMerge {
-    static let lists = ["blocks", "fixed", "todos"]
+    static let lists = ["blocks", "fixed", "todos", "challenges"]
     static let settings = ["theme", "mascot", "lesser", "range", "language", "ai", "rollover"]
 
     static func ms(_ value: Any?) -> Double { (value as? NSNumber)?.doubleValue ?? 0 }
@@ -15,8 +15,8 @@ enum PlanMerge {
 
     static func sampleOnly(_ state: [String: Any]) -> Bool {
         let rows = (state["blocks"] as? [[String: Any]] ?? []) + (state["fixed"] as? [[String: Any]] ?? [])
-        let todos = state["todos"] as? [[String: Any]] ?? []
-        return todos.isEmpty && !rows.isEmpty && rows.allSatisfy { ($0["sample"] as? Bool) == true }
+        let todos = state["todos"] as? [[String: Any]] ?? [], challenges = state["challenges"] as? [Any] ?? []
+        return todos.isEmpty && challenges.isEmpty && !rows.isEmpty && rows.allSatisfy { ($0["sample"] as? Bool) == true }
     }
 
     static func merge(_ a: [String: Any]?, _ b: [String: Any]?) -> [String: Any]? {

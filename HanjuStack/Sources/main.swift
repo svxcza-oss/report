@@ -89,6 +89,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         lesser.onOpen = { [weak self] in self?.showWindow() }
         lesser.onCharacter = { [weak self] c in self?.run("window.hanjuSetMascot && window.hanjuSetMascot('\(c)')") }
         walker.playback = lesser.playback
+        // 바탕화면 레서를 누르면 앱을 앞으로 가져오고 레서와 대화를 열어요.
+        walker.onClick = { [weak self] in
+            self?.showWindow()
+            self?.run("window.hanjuOpenChat && window.hanjuOpenChat()")
+        }
         // 레서 켜기/끄기는 앱 안·바탕화면이 하나로 움직여요 (저장 파일의 "lesser").
         // 메뉴 막대에서 위치를 고르면 켜지고, "끄기"를 고르면 앱 안 레서도 같이 숨어요.
         lesser.onPlace = { [weak self] place in
@@ -216,6 +221,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         lesser.character = root["mascot"] as? String == "passion" ? "passion" : "planner"
         let saver = root["theme"] as? String == "saver"
         walker.character = lesser.character
+        if let ch = Challenge.today(root["challenges"] as? [[String: Any]] ?? []), ch.state == "active" {
+            walker.vessel = (ch.vessel, ch.percent)
+        } else {
+            walker.vessel = nil
+        }
         applyLesserPlace(on: root["lesser"] as? Bool != false)
         if root["theme"] != nil { window?.appearance = NSAppearance(named: saver ? .darkAqua : .aqua) }
         lesser.update(root)
@@ -258,6 +268,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         if url.host == "todo" {   // 위젯의 + : 할 일 입력칸으로
             showWindow()
             run("window.hanjuAddTodo && window.hanjuAddTodo('\(url.lastPathComponent == "week" ? "week" : "day")')")
+            return
+        }
+        if url.host == "challenge" {   // 위젯의 챌린지 칸
+            showWindow()
+            run("window.hanjuShowChallenge && window.hanjuShowChallenge()")
             return
         }
         guard url.host == "day" else { return }
