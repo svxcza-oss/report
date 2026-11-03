@@ -73,6 +73,7 @@ button{font:inherit;cursor:pointer;border:0;border-radius:10px}
 .blk.done{background-color:var(--done);--ink:#fff;color:#fff}
 .blk.fixed{background-color:var(--fixed);background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.14) 0 5px,transparent 5px 10px)}
 .blk.fixed span::before{content:"↻ "}
+.blk.carried:not(.done):not(.fixed) span::before{content:"↪ "}
 .rep input{position:absolute;opacity:0;pointer-events:none}
 .rep label{display:block;padding:11px 12px;border-radius:10px;background:var(--well);color:var(--muted);font-size:13px;cursor:pointer;white-space:nowrap}
 .rep input:checked+label{background:var(--fixed);color:#fff;font-weight:600}
@@ -146,16 +147,25 @@ button{font:inherit;cursor:pointer;border:0;border-radius:10px}
 /* 아이폰처럼 좁은 화면: 일주일이 화면 폭·높이에 딱 맞게 */
 @media (max-width:700px){
   body{padding-left:max(8px,env(safe-area-inset-left,0px));padding-right:max(8px,env(safe-area-inset-right,0px));padding-block:calc(8px + env(safe-area-inset-top,0px)) calc(96px + env(safe-area-inset-bottom,0px))}
-  .wrap{gap:10px}
-  h1{font-size:20px}
+  .wrap{gap:10px;grid-template-columns:minmax(0,1fr)}
+  .todos{grid-template-columns:minmax(0,1fr)}
+  .tl,.tl form,.tl-add{min-width:0}
+  .tl-add{width:0}
+  .tl h2{flex-wrap:wrap}
+  h1{font-size:18px}
   .top{gap:6px}
-  .mode button{padding:5px 8px}
-  .week{flex-wrap:wrap;gap:3px;font-size:12px}
+  .top>div{gap:8px!important}
+  .mode button{padding:4px 8px;font-size:11px}
+  .week{flex-wrap:nowrap;gap:3px;font-size:12px;width:100%}
+  .week>select#language{display:none}
+  .week button{width:28px;height:28px}
+  .week .now{padding:0 6px;font-size:11px}
+  .hours{margin-left:auto}
   .week span{min-width:0}
   .week>select,.hours select{padding:4px;font-size:12px}
   .hours{margin-left:2px}
   form{gap:6px}
-  #name{flex-basis:100%;padding:10px 12px}
+  #name{flex-basis:100%;padding:9px 12px}
   .dur{flex:1 1 0;min-width:0;padding:3px}
   .dur button{width:28px;height:28px}
   .dur input{flex:1;width:auto;min-width:0}
@@ -164,7 +174,7 @@ button{font:inherit;cursor:pointer;border:0;border-radius:10px}
   .lesser .say{display:none}
   .scroll{overflow:visible}
   .board{min-width:0;grid-template-columns:30px repeat(7,minmax(0,1fr));column-gap:2px}
-  .dh{font-size:10px;padding-bottom:3px}
+  .dh{font-size:10px;padding-bottom:3px;line-height:1.15}
   .dh b{font-size:13px}
   .dh .clr{font-size:8px;padding:0 3px}
   .times span{font-size:8px;right:2px}
@@ -177,6 +187,7 @@ button{font:inherit;cursor:pointer;border:0;border-radius:10px}
   .lesser .say{font-size:11px;padding:3px 8px;max-width:60vw;overflow:hidden;text-overflow:ellipsis}
   .chat{right:8px;left:8px;width:auto;bottom:calc(84px + env(safe-area-inset-bottom,0px));height:min(560px,calc(100vh - 120px))}
 }
+@media (max-width:370px){.week{flex-wrap:wrap}.hours{margin-left:0}.rep label{padding:10px 6px}#add{padding:10px 10px}}
 /* 터치 기기는 16px보다 작은 입력칸을 누르면 화면이 확대돼요. 그래서 16px로 */
 @media (hover:none) and (pointer:coarse){#name,.dur input,.tl form input,.tl li input.tx,.chat form input,.chat .set input,.chat .set select,.week>select,.hours select{font-size:16px}}
 @media (prefers-reduced-motion:reduce){.blk.drop,.blk.flash{animation:none}.trash{transition:none}}
@@ -224,6 +235,7 @@ button{font:inherit;cursor:pointer;border:0;border-radius:10px}
     <span>누르면 완료 · 끌어서 옮기기 · ⧉ 또는 ⌥(option) 누르고 끌면 복제 · 휴지통으로 끌면 삭제 · 회색 ↻는 매주 고정</span>
     <div class="clear">
       <span id="hidden-note"></span>
+      <button id="roll-toggle" type="button">못 끝낸 블록 다음 날로: 켬</button>
       <button id="lesser-toggle" type="button">레서 숨기기</button>
       <button id="clear" type="button">지우기</button>
       <span id="clear-opts" hidden>
@@ -269,10 +281,13 @@ if(window.hanjuPlatform==='ios')document.querySelector('meta[name=viewport]').se
 
 let S, drag=null, wk=0, saveInFlight=false, saveQueued=false;
 const slotH=()=>parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--slot-h'))||10;
-function fitSlots(){ // 좁은 화면에서는 보이는 시간이 화면 높이에 들어가게 한 칸 높이를 줄여요
+let safeProbe=null;
+function fitSlots(){ // 좁은 화면: 일주일 판 아래 끝이 화면 아래 끝에 딱 맞게 한 칸 높이를 정해요
   const root=document.documentElement;if(innerWidth>700){root.style.removeProperty('--slot-h');return}
-  const top=board.getBoundingClientRect().top+scrollY,avail=innerHeight-Math.min(top,240)-150;
-  root.style.setProperty('--slot-h',Math.max(3.5,Math.min(10,avail/ROWS())).toFixed(2)+'px')}
+  if(!safeProbe){safeProbe=document.createElement('div');safeProbe.style.cssText='position:fixed;visibility:hidden;pointer-events:none;height:env(safe-area-inset-bottom,0px)';document.body.appendChild(safeProbe)}
+  const top=board.getBoundingClientRect().top+scrollY,head=board.querySelector('.dh')?.getBoundingClientRect().height||30;
+  const avail=innerHeight-top-head-safeProbe.getBoundingClientRect().height-10;
+  root.style.setProperty('--slot-h',Math.max(2.5,Math.min(10,avail/ROWS())).toFixed(2)+'px')}
 const at=h=>h*6; // v4: ten-minute slots from midnight
 const FROM=()=>S.range.from*6, TO=()=>S.range.to*6, ROWS=()=>TO()-FROM();
 const uid=()=>Math.random().toString(36).slice(2,9);
@@ -303,7 +318,7 @@ function migrate(v){ // older saves kept a weekday index, and counted time from 
   if(Object.prototype.hasOwnProperty.call(v,'timeFormat')){delete v.timeFormat;v._m=true}
   if(!Array.isArray(v.todos))v.todos=[];
   if(!v.ai||typeof v.ai!=='object')v.ai={provider:'auto',models:{}};if(!['auto','apple','anthropic','openai','script'].includes(v.ai.provider))v.ai.provider='auto';if(!v.ai.models||typeof v.ai.models!=='object')v.ai.models={};
-  if(v.theme!=='saver')v.theme='light';if(v.mascot!=='passion')v.mascot='planner';if(v.lesser!==false)v.lesser=true;
+  if(v.theme!=='saver')v.theme='light';if(v.mascot!=='passion')v.mascot='planner';if(v.lesser!==false)v.lesser=true;if(v.rollover!==false)v.rollover=true;
   v.blocks.forEach(b=>{if(!b.date&&b.day!=null){b.date=w[b.day]}delete b.day});
   v.blocks=v.blocks.filter(b=>b.date);if(typeof v.n!=='number')v.n=v.blocks.length;
   v.fixed.forEach(f=>f.fixed=true);return v;
@@ -314,8 +329,24 @@ function load(){
   return migrate(sample());
 }
 function save(){
+  stampChanges();
   if(NATIVE){if(saveInFlight){saveQueued=true;return}saveInFlight=true;window.webkit.messageHandlers.native.postMessage({action:'save',state:S});return}
   try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}
+}
+/* 바뀐 항목에만 시각(u)을 찍고, 지운 항목은 deleted에 남겨요. 그래야 다른 기기·위젯과 항목 단위로 합칠 수 있어요. */
+const canon=v=>Array.isArray(v)?'['+v.map(canon).join(',')+']':v&&typeof v==='object'?'{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canon(v[k])).join(',')+'}':JSON.stringify(v);
+const SETTINGS=['theme','mascot','lesser','range','language','ai','rollover'];
+let snap=null,snapSettings=null;
+function snapshot(){const m=new Map();for(const k of ['blocks','fixed','todos'])for(const r of S[k]||[]){const {u,...rest}=r;m.set(r.id,k+canon(rest))}return m}
+function settingsSig(){return canon(Object.fromEntries(SETTINGS.map(k=>[k,S[k]])))}
+function rememberSaved(){snap=snapshot();snapSettings=settingsSig()}
+function stampChanges(){
+  if(!snap){rememberSaved();return}
+  const now=Date.now(),cur=snapshot();
+  for(const k of ['blocks','fixed','todos'])for(const r of S[k]||[])if(snap.get(r.id)!==cur.get(r.id))r.u=now;
+  for(const id of snap.keys())if(!cur.has(id)){if(!S.deleted||typeof S.deleted!=='object')S.deleted={};S.deleted[id]=now}
+  const sig=settingsSig();if(sig!==snapSettings)S._settingsAt=now;
+  rememberSaved();
 }
 const wdOf=k=>(new Date(k+'T00:00').getDay()+6)%7;
 const find=id=>S.blocks.find(b=>b.id===id)||S.fixed.find(b=>b.id===id);
@@ -342,12 +373,27 @@ function applyLanguage(){
   document.querySelector('.mode').setAttribute('aria-label',T('화면 모드','Appearance'));
   document.querySelector('.dur').setAttribute('aria-label',T('걸리는 시간','Duration'));
   $('lesser-art').title=T('누르면 레서와 대화해요','Click to chat with Lesser');
+  $('roll-toggle').textContent=S.rollover===false?T('못 끝낸 블록 다음 날로: 끔','Carry unfinished blocks: off'):T('못 끝낸 블록 다음 날로: 켬','Carry unfinished blocks: on');
   if(window.chatLanguage)window.chatLanguage();
   for(const b of document.querySelectorAll('#clear-opts .opt'))if(!b.classList.contains('armed'))b.textContent=clearLabel(b.dataset.what);
 }
 
+/* ---------- 못 끝낸 블록은 다음 날로 (PlanLess의 이월과 같은 방식: id·내용 그대로 날짜만 오늘로) ----------
+   지난 7일 안의 완료 안 한 블록을 오늘로 옮겨요. 같은 시간이 비어 있으면 그 시간, 아니면 가장 이른 빈칸.
+   오늘이 꽉 차면 그다음 날. 옮긴 블록은 ↪ 표시. 맥·아이폰에서 같은 id라 동기화해도 하나로 합쳐져요. */
+function rollOver(){
+  if(!S||S.rollover===false)return 0;
+  const today=key(new Date()),since=(()=>{const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-7);return key(d)})();
+  const late=S.blocks.filter(b=>!b.done&&b.date<today&&b.date>=since).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:a.start-b.start);
+  for(const b of late){let placed=false;
+    for(let i=0;i<7&&!placed;i++){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()+i);const day=key(d);
+      const s=fits(day,b.start,b.len,b.id)?b.start:freeOn(day,b.len);if(s!=null){b.date=day;b.start=s;placed=true}}
+    if(!placed)b.date=today;
+    b.carried=(b.carried||0)+1}
+  return late.length}
 function render(fresh,flash){
   applyLanguage();fitSlots();
+  const rolled=rollOver();if(rolled){save();setTimeout(()=>toast(T(`못 끝낸 블록 ${rolled}개를 오늘로 옮겼어요`,`Moved ${rolled} unfinished block${rolled>1?'s':''} to today`)),0)}
   const dates=weekDates(wk), tk=key(today()), h=slotH();
   $('range').textContent=`${dates[0].getMonth()+1}/${dates[0].getDate()} – ${dates[6].getMonth()+1}/${dates[6].getDate()}`;
   $('now').hidden=wk===0;
@@ -360,7 +406,7 @@ function render(fresh,flash){
   dates.forEach(dt=>{const k=key(dt);
     html+=`<div class="col${k===tk?' today':''}" data-date="${k}" style="--slots:${ROWS()}">`;
     for(const b of onDay(k)){if(b.start+b.len<=FROM()||b.start>=TO()){outside++;continue}const top=(b.start-FROM())*h;
-      html+=`<div class="blk${b.len===1?' short':''}${b.fixed?' fixed':''}${b.done?' done':''}${fresh===b.id?' drop':''}${flash===b.id?' flash':''}" tabindex="0" role="button" data-id="${b.id}" title="${esc(b.name)} ${hm(b.start)}–${hm(b.start+b.len)}"
+      html+=`<div class="blk${b.len===1?' short':''}${b.carried?' carried':''}${b.fixed?' fixed':''}${b.done?' done':''}${fresh===b.id?' drop':''}${flash===b.id?' flash':''}" tabindex="0" role="button" data-id="${b.id}" title="${esc(b.name)} ${hm(b.start)}–${hm(b.start+b.len)}"
         aria-label="${esc(b.name)}, ${dayName(k)} ${hm(b.start)}${T('부터','')}${b.done?T(', 완료',', completed'):''}"
         style="top:${top}px;height:${b.len*h}px;--c:${b.fixed?'var(--fixed)':'var(--t'+b.c+')'};--ink:${b.c===2?'#2a2200':'#fff'};--fall:${top+60}px"><span>${esc(b.name)}</span>${b.len*h>=16?'<i class="dup" title="Duplicate (⌘D)" aria-hidden="true">⧉</i>':''}</div>`}
     html+='</div>';
@@ -420,7 +466,7 @@ function showDate(k){const d=new Date(k+'T00:00');if(isNaN(d))return;
   wk=Math.round((monD-monT)/(7*864e5));render()}
 window.hanjuToggle=id=>{const b=find(id);if(!b)return;showDate(b.date);toggle(id)};
 window.hanjuShowDate=showDate;
-window.hanjuLoad=state=>{if(state&&Array.isArray(state.blocks)&&!drag&&!saveInFlight){const was=new Set(S.blocks.filter(b=>b.done).map(b=>b.id));S=migrate(state);const migrated=S._m;delete S._m;if(migrated)save();
+window.hanjuLoad=state=>{if(state&&Array.isArray(state.blocks)&&!drag&&!saveInFlight){const was=new Set(S.blocks.filter(b=>b.done).map(b=>b.id));S=migrate(state);rememberSaved();const migrated=S._m;delete S._m;if(migrated)save();
   S.blocks.filter(b=>b.done&&!was.has(b.id)&&b.date===key(today())).forEach(()=>L.celebrate());applyMode();render();return true}return false};
 window.hanjuDidSave=revision=>{S._revision=revision;saveInFlight=false;if(saveQueued){saveQueued=false;save()}};
 window.hanjuSaveRejected=()=>{saveInFlight=false;saveQueued=false};
@@ -506,7 +552,7 @@ function up(){
   if(t)toast(T('다른 블록과 겹쳐요','Overlaps another block'));render();
 }
 addEventListener('resize',()=>{if(!drag)render()});
-S=load();if(S._m){delete S._m;save()}
+S=load();rememberSaved();if(S._m){delete S._m;save()}
 
 /* ---------- 화면 모드: 라이트 / 절전(어두운 화면 + 움직임 멈춤) ---------- */
 function applyMode(){
@@ -520,6 +566,8 @@ function applyMode(){
 $('m-light').onclick=()=>{S.theme='light';save();applyMode()};
 $('m-saver').onclick=()=>{S.theme='saver';save();applyMode();toast(T('절전 모드: 어두운 화면','Dark mode enabled'))};
 $('lesser-toggle').onclick=()=>{S.lesser=!S.lesser;save();applyMode()};
+$('roll-toggle').onclick=()=>{S.rollover=S.rollover===false;save();render();toast(S.rollover?T('못 끝낸 블록을 다음 날로 넘겨요','Unfinished blocks move to the next day'):T('못 끝낸 블록을 그 날짜에 그대로 둬요','Unfinished blocks stay on their day'))};
+setInterval(()=>{if(!drag&&rollOver()){save();render()}},60000);   // 자정이 지나면
 
 /* ---------- 레서: PlanLess companion.js의 그림·시선·깜빡임 로직을 그대로 옮김 ---------- */
 const L=(()=>{

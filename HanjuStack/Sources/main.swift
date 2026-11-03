@@ -16,22 +16,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     var lastRevision = -1
     var store: HanjuStore!
     var chat: ChatBridge?
-    var cloud: CloudSync?
+    var cloud: CloudPlan? { CloudPlan.shared }
+    var cloudTimer: Timer?
+    var runningCopy: NSRunningApplication?   // 이미 켜져 있는 한 주 쌓기 (중복 실행 막기)
     var watcher: Timer?
     var clockTimer: Timer?
     lazy var lesser = MenuBarLesser()
     lazy var walker = DesktopLesser()
 
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        // 같은 앱이 이미 켜져 있으면(다른 위치에 깔린 복사본 포함) 그쪽을 앞으로 가져오고 이건 닫아요.
+        let me = NSRunningApplication.current
+        runningCopy = NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "")
+            .first { $0.processIdentifier != me.processIdentifier }
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if let other = runningCopy {
+            other.activate()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { NSApp.terminate(nil) }
+            return
+        }
         let initial: [String: Any]?
         do {
             store = try HanjuStore.production()
-            // 맥 ↔ 아이폰 iCloud 동기화: 화면을 띄우기 전에 더 새로운 쪽으로 맞춰요.
-            cloud = CloudSync(store: store)
-            cloud?.onApplied = { [weak self] in
-                self?.lastRevision = -1; self?.pullFromWidget(); WidgetCenter.shared.reloadAllTimelines()
-            }
-            cloud?.start()
             initial = try store.read(); lastRevision = HanjuStore.revision(initial)
         }
         catch { NSAlert(error: error).runModal(); NSApp.terminate(nil); return }
@@ -93,6 +101,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         // The 레서 works while a block's time is running, so look again as the clock moves.
         clockTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in self?.refreshLesser() }
 
+        // 맥 ↔ 아이폰 iCloud 동기화: 다른 기기에서 바뀌면 조용한 알림으로, 켜져 있는 동안은 20초마다도 확인해요.
+        cloud?.onApplied = { [weak self] in self?.lastRevision = -1; self?.pullFromWidget() }
+        cloud?.sync()
+        NSApp.registerForRemoteNotifications()
+        cloudTimer = Timer.scheduledTimer(withTimeInterval: 20, repeats: true) { [weak self] _ in self?.cloud?.sync() }
+
         // While the app is open, pick up widget taps within a second or two.
         watcher = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
             self?.pullFromWidget()
@@ -118,18 +132,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         NSApp.mainMenu = main
     }
 
-    // Reject stale whole-board writes instead of overwriting newer widget edits.
+    // The page's copy is merged item by item into the shared file, so widget or other-device edits are kept.
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.frameInfo.isMainFrame else { return }
         if let body = message.body as? [String: Any], chat?.handle(body) == true { return }   // 레서 채팅
         guard let body = message.body as? [String: Any], body["action"] as? String == "save",
               let state = body["state"] as? [String: Any] else { return }
         do {
-            let saved = try store.update(expected: HanjuStore.revision(state)) { _ in state }
+            let saved = try store.update { current in PlanMerge.merge(current, state) ?? state }
             lastRevision = HanjuStore.revision(saved)
-            cloud?.push(saved)
             run("window.hanjuDidSave && window.hanjuDidSave(\(lastRevision))")
+            if !PlanMerge.same(saved, state) { lastRevision = -1; pullFromWidget() }   // 합쳐진 내용을 화면에도
             WidgetCenter.shared.reloadAllTimelines(); refreshLesser()
+            cloud?.sync()
         } catch {
             run("window.hanjuSaveRejected && window.hanjuSaveRejected()")
             lastRevision = -1; pullFromWidget(); showError(error)
@@ -141,7 +156,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
             guard let state = try store.read() else { return }
             let revision = HanjuStore.revision(state)
             guard revision != lastRevision else { return }
-            cloud?.localChanged(state)   // 위젯에서 바뀐 것도 아이폰으로
+            if lastRevision >= 0 { cloud?.sync() }   // 위젯에서 바뀐 것도 아이폰으로
             let data = try JSONSerialization.data(withJSONObject: state, options: [.sortedKeys])
             guard let text = String(data: data, encoding: .utf8) else { return }
             guard loaded else { return }
@@ -235,6 +250,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
 
     // hanju://day/2026-10-29 (a weekday name in the widget) opens that week.
     func application(_ application: NSApplication, open urls: [URL]) {
+        if let other = runningCopy, let appURL = other.bundleURL {   // 중복 실행이면 켜져 있는 쪽으로 넘겨요
+            NSWorkspace.shared.open(urls, withApplicationAt: appURL, configuration: NSWorkspace.OpenConfiguration())
+            return
+        }
         guard let url = urls.first, url.scheme == "hanju" else { return }
         if url.host == "todo" {   // 위젯의 + : 할 일 입력칸으로
             showWindow()
@@ -254,8 +273,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    func applicationDidBecomeActive(_ notification: Notification) { cloud?.reconcile(); pullFromWidget() }
-    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { showWindow(); return true }
+    func applicationDidBecomeActive(_ notification: Notification) {
+        guard runningCopy == nil, store != nil else { return }
+        cloud?.sync(); pullFromWidget()
+    }
+    func application(_ application: NSApplication, didReceiveRemoteNotification userInfo: [String: Any]) { cloud?.sync() }
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if window != nil { showWindow() }
+        return true
+    }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 }
 

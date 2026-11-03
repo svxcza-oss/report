@@ -6,8 +6,25 @@ import WidgetKit
 // 한 주 쌓기 — 아이폰·아이패드. 화면은 맥과 같은 웹 페이지(index.html)이고,
 // 저장은 위젯과 같은 App Group 파일(HanjuStore)을 써요. 레서 채팅도 맥과 같아요.
 
+/// 다른 기기에서 계획이 바뀌면 CloudKit이 조용한 알림으로 앱을 깨워요. 앱이 꺼져 있어도 받아서 위젯까지 새로 그려요.
+final class HanjuAppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        if CloudPlan.shared != nil { application.registerForRemoteNotifications() }
+        return true
+    }
+    func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+                     fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        guard let cloud = CloudPlan.shared else { completionHandler(.noData); return }
+        Task {
+            let changed = await cloud.syncNow()
+            completionHandler(changed ? .newData : .noData)
+        }
+    }
+}
+
 @main
 struct HanjuApp: App {
+    @UIApplicationDelegateAdaptor(HanjuAppDelegate.self) private var appDelegate
     @Environment(\.scenePhase) private var phase
 
     var body: some Scene {
@@ -33,7 +50,8 @@ final class BoardController: UIViewController, WKScriptMessageHandler, WKNavigat
     private var web: WKWebView!
     private var store: HanjuStore!
     private var chat: ChatBridge?
-    private var cloud: CloudSync?
+    private var cloud: CloudPlan? { CloudPlan.shared }
+    private var cloudTimer: Timer?
     private var loaded = false
     private var pending: [String] = []
     private var lastRevision = -1
@@ -48,12 +66,9 @@ final class BoardController: UIViewController, WKScriptMessageHandler, WKNavigat
             let folder = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             store = HanjuStore(url: folder.appendingPathComponent("HanjuStack/state.json"))
         }
-        // 맥 ↔ 아이폰 iCloud 동기화: 화면을 띄우기 전에 더 새로운 쪽으로 맞춰요.
-        cloud = CloudSync(store: store)
-        cloud?.onApplied = { [weak self] in
-            self?.lastRevision = -1; self?.pull(); WidgetCenter.shared.reloadAllTimelines()
-        }
-        cloud?.start()
+        // 맥 ↔ 아이폰 iCloud 동기화: 바뀐 게 오면 화면을 새로 불러와요.
+        cloud?.onApplied = { [weak self] in self?.lastRevision = -1; self?.pull() }
+        cloud?.sync()
         initial = try? store.read()
         lastRevision = HanjuStore.revision(initial)
 
@@ -83,6 +98,12 @@ final class BoardController: UIViewController, WKScriptMessageHandler, WKNavigat
         watcher?.invalidate()
         // 앱이 켜져 있는 동안 위젯에서 체크한 것을 1~2초 안에 가져와요.
         watcher = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in self?.pull() }
+        cloudTimer?.invalidate()
+        cloudTimer = Timer.scheduledTimer(withTimeInterval: 20, repeats: true) { [weak self] _ in
+            self?.cloud?.sync()
+            self?.refreshLive()
+        }
+        refreshLive()
     }
 
     // MARK: 페이지 ↔ 저장
@@ -92,35 +113,46 @@ final class BoardController: UIViewController, WKScriptMessageHandler, WKNavigat
         if chat?.handle(body) == true { return }   // 레서 채팅
         guard body["action"] as? String == "save", let state = body["state"] as? [String: Any] else { return }
         do {
-            let saved = try store.update(expected: HanjuStore.revision(state)) { _ in state }
+            // 화면의 계획을 저장 파일과 항목 단위로 합쳐요. 위젯이나 다른 기기에서 바뀐 건 그대로 남아요.
+            let saved = try store.update { current in PlanMerge.merge(current, state) ?? state }
             lastRevision = HanjuStore.revision(saved)
-            cloud?.push(saved)
             run("window.hanjuDidSave && window.hanjuDidSave(\(lastRevision))")
+            if !PlanMerge.same(saved, state) { lastRevision = -1; pull() }
             WidgetCenter.shared.reloadAllTimelines()
+            LiveBlocks.refresh(saved)
+            cloud?.sync()
         } catch {
             run("window.hanjuSaveRejected && window.hanjuSaveRejected()")
             lastRevision = -1
             pull()
-            if (error as? HanjuStore.StoreError) != .stale { show(error) }
+            show(error)
         }
     }
 
     func becameActive() {
-        cloud?.reconcile()
+        cloud?.sync()
         pull()
+        refreshLive()
     }
 
     func pull() {
         guard loaded, let store, let state = try? store.read() else { return }
         let revision = HanjuStore.revision(state)
         guard revision != lastRevision else { return }
-        cloud?.localChanged(state)   // 위젯에서 바뀐 것도 맥으로
+        if lastRevision >= 0 { cloud?.sync() }   // 위젯에서 바뀐 것도 맥으로
         guard
               let data = try? JSONSerialization.data(withJSONObject: state, options: [.sortedKeys]),
               let text = String(data: data, encoding: .utf8) else { return }
         web.evaluateJavaScript("window.hanjuLoad && window.hanjuLoad(\(text))") { [weak self] value, error in
             if error == nil, value as? Bool == true { self?.lastRevision = revision }
         }
+        LiveBlocks.refresh(state)
+    }
+
+    /// 잠금화면 실시간 현황을 지금 계획에 맞춰요 (앱이 화면에 있을 때만 새로 시작할 수 있어요).
+    func refreshLive() {
+        guard UIApplication.shared.applicationState == .active else { return }
+        LiveBlocks.refresh(try? store?.read())
     }
 
     private func show(_ error: Error) {
