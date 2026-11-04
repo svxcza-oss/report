@@ -187,6 +187,24 @@ button{font:inherit;cursor:pointer;border:0;border-radius:10px}
 .ch-tpl button{background:var(--well);color:var(--fg);border:1px solid var(--line);font-size:12px;padding:6px 10px;border-radius:99px}
 .ch-tpl button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);font-weight:700}
 .ch-preview{margin:0;font-size:12px;color:var(--muted);white-space:pre-line}
+/* 아이폰 날짜 칸은 기본 최소 폭이 있어서 칸 밖으로 넘쳐요 → 모양을 없애고 칸에 맞춰요 */
+.sheet input[type="date"]{-webkit-appearance:none;appearance:none;display:block;min-width:0;max-width:100%;height:38px;line-height:1.2;text-align:left}
+.sheet input[type="date"]::-webkit-date-and-time-value{text-align:left;margin:0}
+.sheet input[type="date"]::-webkit-calendar-picker-indicator{margin:0}
+.ch-seg{display:flex;background:var(--well);border-radius:9px;padding:3px;gap:2px}
+.ch-seg button{flex:1;background:none;color:var(--muted);font-size:12px;padding:7px 8px;border-radius:7px}
+.ch-seg button[aria-pressed="true"]{background:var(--bg);color:var(--fg);font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.ch-tip{display:flex;gap:9px;align-items:flex-start;background:color-mix(in srgb,var(--accent) 9%,transparent);border:1px solid color-mix(in srgb,var(--accent) 25%,transparent);border-radius:10px;padding:9px 10px;font-size:12px;line-height:1.5}
+.ch-tip img{width:34px;height:34px;image-rendering:pixelated;flex:none}
+.ch-tip p{margin:0 0 6px}
+.ch-tip button{background:var(--accent);color:#fff;font-size:12px;font-weight:700;padding:5px 10px;border-radius:7px}
+.ch-rows{list-style:none;margin:0;padding:0;display:grid;gap:6px;max-height:min(46vh,360px);overflow:auto}
+.ch-rows li{display:grid;grid-template-columns:46px minmax(0,1fr) minmax(0,2fr) 26px;gap:6px;align-items:center}
+.ch-rows b{font-size:12px;color:var(--muted)}
+.ch-rows .d-x{background:none;color:var(--muted);padding:0;font-size:13px;height:30px}
+.ch-rowbtns{display:flex;gap:6px;flex-wrap:wrap}
+.ch-rowbtns button{background:var(--well);color:var(--fg);border:1px solid var(--line);font-size:12px;padding:6px 10px;border-radius:8px}
+@media (max-width:520px){.ch-rows li{grid-template-columns:40px minmax(0,1fr) 26px}.ch-rows .d-i{grid-column:2}.ch-rows .d-x{grid-row:1;grid-column:3}}
 .lbody{position:relative;display:block;line-height:0}
 .lesser .vessel{position:absolute;right:-10px;bottom:4px;display:grid;justify-items:center;gap:1px;pointer-events:none;color:var(--fg);line-height:1}
 .lesser .vessel svg{width:28px;height:37px}
@@ -660,6 +678,11 @@ function chTemplates(){const tk=key(today());return {
     text:T('범위: 1단원, 2단원, 3단원, 4단원, 5단원, 6단원\n마지막 날: 총복습, 틀린 문제 다시 보기','Units: Unit 1, Unit 2, Unit 3, Unit 4, Unit 5, Unit 6\nLast day: Full review, Redo mistakes')},
   habit:{label:T('매일 습관','Daily habit'),title:T('21일 습관','21-day habit'),vessel:'pot',end:'',
     text:T('매일: 물 2L, 스트레칭 10분, 책 10쪽\n기간: 21일','Every day: Drink 2L water, Stretch 10 min, Read 10 pages\nDays: 21')}}}
+function copyText(text){ // 클립보드 API가 막힌 곳(앱 안 웹뷰)에서는 예전 방식으로
+  const legacy=()=>{const t=document.createElement('textarea');t.value=text;t.setAttribute('readonly','');t.style.cssText='position:fixed;opacity:0;top:0;left:0';document.body.appendChild(t);t.select();t.setSelectionRange(0,text.length);
+    let ok=false;try{ok=document.execCommand('copy')}catch(e){}t.remove();return ok};
+  if(navigator.clipboard&&window.isSecureContext)return navigator.clipboard.writeText(text).then(()=>true,()=>legacy());
+  return Promise.resolve(legacy())}
 function openChallengeSheet(){
   let el=$('ch-sheet');if(!el){el=document.createElement('div');el.id='ch-sheet';el.className='sheet';document.body.appendChild(el)}
   const tpl=chTemplates(),tk=key(today());
@@ -668,16 +691,50 @@ function openChallengeSheet(){
     <div class="ch-tpl">${Object.entries(tpl).map(([k,v])=>`<button type="button" data-t="${k}" aria-pressed="${k==='paste'}">${v.label}</button>`).join('')}</div>
     <label><span>${T('이름','Name')}</span><input id="ch-title" maxlength="40" placeholder="${T('예: PCCP 10일 완성','e.g. 10-day exam sprint')}"></label>
     <div class="row2"><label><span>${T('시작일','Starts')}</span><input type="date" id="ch-start" value="${tk}"></label><label><span>${T('마감·시험일 (선택)','Due / exam date (optional)')}</span><input type="date" id="ch-end"></label></div>
-    <div class="row2"><label><span>${T('못 끝낸 날은','If a day is unfinished')}</span><select id="ch-mode"><option value="fixed">${T('날짜 고정 · %로 남기기','Keep dates · record %')}</option><option value="shift">${T('밀기 · 끝낼 때까지','Wait · until finished')}</option></select></label>
+    <div class="row2"><label><span>${T('못 끝낸 날은','If a day is unfinished')}</span><select id="ch-mode"><option value="fixed">${T('날짜 고정','Keep dates')}</option><option value="shift">${T('밀기','Wait')}</option></select></label>
       <label><span>${T('레서가 들 그릇','What Lesser carries')}</span><select id="ch-vessel">${VESSELS.map(v=>`<option value="${v}">${vesselName(v)}</option>`).join('')}</select></label></div>
-    <label><span>${T('내용','Plan')}</span><textarea id="ch-text" placeholder="${T('Day 1 워밍업\n하샤드 수, 같은 숫자는 싫어, K번째수\nDay 2 구현\n키패드 누르기, 공원 산책\n\n머리글 없이 한 줄에 하루씩 써도 돼요.','Day 1 Warm-up\nItem one, item two, item three\nDay 2 Practice\nItem four, item five\n\nOr just one line per day.')}"></textarea></label>
+    <p class="ch-preview" id="ch-mode-note"></p>
+    <div class="ch-seg" role="group" aria-label="${T('내용 쓰는 방법','How to enter the plan')}"><button type="button" data-m="paste" aria-pressed="true">${T('📋 붙여넣기','📋 Paste')}</button><button type="button" data-m="days" aria-pressed="false">${T('✏️ 하루씩 쓰기','✏️ Day by day')}</button></div>
+    <div id="ch-pane-paste">
+      <div class="ch-tip"><img src="Mascots/${S.mascot==='passion'?'passion':'planner'}/idle/frame-05.png" alt="">
+        <div><p>${T('<b>레서 팁</b> · 직접 쓰기 귀찮으면 ChatGPT나 Claude한테 계획을 짜 달라고 하면서 <b>"Day 1 주제: 할 일, 할 일"</b> 형식으로 달라고 해! 받은 걸 그대로 아래에 붙여넣으면 돼.','<b>Lesser tip</b> · Ask ChatGPT or Claude to plan it for you in the format <b>"Day 1 Topic: task, task"</b>, then paste the answer below as-is.')}</p>
+        <button type="button" id="ch-copy-ask">${T('AI한테 보낼 말 복사','Copy the request for an AI')}</button></div></div>
+      <textarea id="ch-text" aria-label="${T('내용','Plan')}" placeholder="${T('Day 1 워밍업: 하샤드 수, 같은 숫자는 싫어, K번째수\nDay 2 구현: 키패드 누르기, 공원 산책\nDay 3 …\n\nDay 없이 한 줄에 하루씩 써도 돼요.','Day 1 Warm-up: task one, task two\nDay 2 Practice: task three, task four\nDay 3 …\n\nOr just one line per day.')}"></textarea>
+    </div>
+    <div id="ch-pane-days" hidden>
+      <ol class="ch-rows" id="ch-rows"></ol>
+      <div class="ch-rowbtns"><button type="button" id="ch-add-day">${T('＋ Day 하나','＋ One day')}</button><button type="button" id="ch-add-week">${T('＋ 7일 더','＋ 7 more days')}</button></div>
+    </div>
     <p class="ch-preview" id="ch-preview"></p>
     <button type="submit" class="go">${T('만들기','Create')}</button></form>`;
   el.hidden=false;const f=$('ch-form'),close=()=>{el.hidden=true;el.innerHTML=''};
   const preview=()=>{const p=parseChallenge($('ch-text').value,{start:$('ch-start').value,end:$('ch-end').value}),n=p.days.reduce((a,d)=>a+d.items.length,0);
     $('ch-preview').textContent=p.days.length?T(`${p.days.length}일 · 항목 ${n}개`,`${p.days.length} days · ${n} items`)+(p.days[0]?`\nDay 1: ${p.days[0].items.map(x=>x.text).slice(0,4).join(', ')}${p.days[0].items.length>4?' …':''}`:''):T('내용을 쓰면 여기에 Day가 나와요','Your days will show up here');return p};
+  // 하루씩 쓰기: 칸에 쓴 걸 "Day N 주제: 할 일, 할 일" 글로 바꿔서 붙여넣기 칸과 같은 내용으로 둬요
+  let mode='paste';
+  const rowHTML=(r,i)=>`<li><b>Day ${i+1}</b><input class="d-t" maxlength="40" value="${esc(r.t)}" placeholder="${T('주제 (선택)','Topic (optional)')}" aria-label="Day ${i+1} ${T('주제','topic')}"><input class="d-i" value="${esc(r.items)}" placeholder="${T('할 일, 할 일 (쉼표로 나눠요)','task, task (comma separated)')}" aria-label="Day ${i+1} ${T('할 일','tasks')}"><button type="button" class="d-x" aria-label="Day ${i+1} ${T('빼기','remove')}">✕</button></li>`;
+  const readRows=()=>[...$('ch-rows').children].map(li=>({t:li.querySelector('.d-t').value.trim().replace(/[:：]/g,' '),items:li.querySelector('.d-i').value.trim()}));
+  const drawRows=rows=>{$('ch-rows').innerHTML=rows.map(rowHTML).join('')};
+  const syncText=()=>{$('ch-text').value=readRows().filter(r=>r.t||r.items).map((r,i)=>`Day ${i+1}${r.t?' '+r.t:''}: ${r.items}`).join('\n');preview()};
+  const rowsFromText=()=>{const p=parseChallenge($('ch-text').value,{start:$('ch-start').value,end:$('ch-end').value});
+    const rows=p.days.map(d=>({t:d.t,items:d.items.map(x=>x.text+(x.url?' '+x.url:'')).join(', ')}));while(rows.length<3)rows.push({t:'',items:''});return rows};
+  const setMode=m=>{mode=m;el.querySelectorAll('.ch-seg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.m===m)));
+    $('ch-pane-paste').hidden=m!=='paste';$('ch-pane-days').hidden=m!=='days';if(m==='days'){drawRows(rowsFromText());syncText()}};
+  el.querySelectorAll('.ch-seg button').forEach(b=>b.onclick=()=>setMode(b.dataset.m));
+  const modeNote=()=>{$('ch-mode-note').textContent=$('ch-mode').value==='shift'?T('밀기: 그 Day를 다 끝낼 때까지 다음 Day로 안 넘어가요.','Wait: you stay on a day until it is done.'):T('날짜 고정: 날짜대로 다음 Day로 넘어가고, 못 한 건 그날 %로 남고 "밀린 항목"으로 따라와요.','Keep dates: days follow the calendar; leftovers stay as that day\'s % and follow you as a backlog.')};
+  $('ch-mode').addEventListener('change',modeNote);modeNote();
+  $('ch-rows').addEventListener('input',syncText);
+  $('ch-rows').addEventListener('click',e=>{const x=e.target.closest('.d-x');if(!x)return;const rows=readRows(),i=[...$('ch-rows').children].indexOf(x.closest('li'));rows.splice(i,1);drawRows(rows.length?rows:[{t:'',items:''}]);syncText()});
+  $('ch-rows').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('input')){e.preventDefault();const li=e.target.closest('li'),next=e.target.matches('.d-t')?li.querySelector('.d-i'):li.nextElementSibling?.querySelector('.d-t');
+    if(next)next.focus();else{$('ch-add-day').click()}}});
+  const addRows=n=>{const rows=readRows();for(let i=0;i<n;i++)rows.push({t:'',items:''});drawRows(rows);const li=$('ch-rows').children[rows.length-n];li?.querySelector('.d-t').focus();li?.scrollIntoView({block:'nearest'})};
+  $('ch-add-day').onclick=()=>addRows(1);$('ch-add-week').onclick=()=>addRows(7);
+  $('ch-copy-ask').onclick=()=>{const ask=T('아래 목표를 며칠짜리 계획으로 나눠줘. 한 줄에 하루씩, 꼭 이 형식으로만 써줘 (다른 설명은 빼고):\nDay 1 주제: 할 일, 할 일, 할 일\nDay 2 주제: 할 일, 할 일\n\n내 목표: ',
+      'Split the goal below into a day-by-day plan. One line per day, in exactly this format and nothing else:\nDay 1 Topic: task, task, task\nDay 2 Topic: task, task\n\nMy goal: ');
+    copyText(ask).then(ok=>{if(!ok){$('ch-text').value=ask+'\n'+$('ch-text').value;preview()}toast(ok?T('복사했어요 · AI한테 붙여넣고 목표만 이어서 쓰세요','Copied · paste it to an AI and add your goal'):T('복사가 안 돼서 입력칸에 넣었어요','Could not copy — put it in the box instead'))},()=>{});
+  };
   el.querySelectorAll('.ch-tpl button').forEach(b=>b.onclick=()=>{const t=tpl[b.dataset.t];el.querySelectorAll('.ch-tpl button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
-    $('ch-title').value=t.title;$('ch-vessel').value=t.vessel;$('ch-end').value=t.end;$('ch-text').value=t.text;preview()});
+    $('ch-title').value=t.title;$('ch-vessel').value=t.vessel;$('ch-end').value=t.end;$('ch-text').value=t.text;if(mode==='days')drawRows(rowsFromText());preview()});
   for(const id of ['ch-text','ch-start','ch-end'])$(id).addEventListener('input',preview);
   $('ch-close').onclick=close;el.onclick=e=>{if(e.target===el)close()};f.onkeydown=e=>{if(e.key==='Escape')close()};
   f.onsubmit=e=>{e.preventDefault();const p=preview();if(!p.days.length){toast(T('내용에 Day를 하나 이상 써 주세요','Add at least one day'));$('ch-text').focus();return}
@@ -949,6 +1006,7 @@ const Chat=(()=>{
     const k=key(today()),mine=S.blocks.filter(b=>b.date===k),left=mine.filter(b=>!b.done),q=String(text||'');
     if((q.match(/(?:day|데이)\s*\d+/gi)||[]).length>=2||/^(매일|범위)\s*[:：]/m.test(q)){const r=toolNewChallenge({text:q});
       return r.ok?T(`${r.challenge.days}일짜리 챌린지를 만들었어! 오늘은 Day ${r.challenge.day}. 아래 챌린지 칸에서 이름·방식·그릇을 바꿀 수 있어.`,`Made a ${r.challenge.days}-day challenge! Today is Day ${r.challenge.day}. Rename it or change the mode and vessel on its card below.`):r.error}
+    if(/(챌린지|challenge).*(어떻게|만들|방법|how|make)|(어떻게|만들|how).*(챌린지|challenge)/i.test(q))return T('챌린지는 할 일 아래 "＋ 챌린지 만들기"에서 만들어!\n· 하루씩 쓰기: Day마다 칸에 할 일을 쉼표로 써.\n· 붙여넣기: ChatGPT나 Claude한테 "Day 1 주제: 할 일, 할 일" 형식으로 계획을 짜 달라고 하고, 받은 걸 그대로 붙여넣으면 돼. 여기 나한테 붙여넣어도 바로 만들어 줄게!','Make one with "＋ New challenge" below the to-dos!\n· Day by day: type each day\'s tasks, comma separated.\n· Paste: ask ChatGPT or Claude for a plan in the format "Day 1 Topic: task, task" and paste the answer. You can paste it to me here too!');
     if(/챌린지|challenge|코스|진도/i.test(q)){const a=chActive();if(!a)return T('진행 중인 챌린지가 없어. 아래 "챌린지 만들기"로 시작하거나 Day 1, Day 2… 계획을 그대로 붙여넣어 줘!','No challenge running. Start one with "New challenge" below, or paste a Day 1, Day 2… plan here!');
       const ch=a.c.checks||{},rest=a.now.items.filter(it=>!ch[it.id]);
       return T(`${a.c.title} Day ${a.now.idx+1}/${a.now.n}, 오늘 ${Math.round(a.now.pct*100)}% 찼어.`,`${a.c.title} Day ${a.now.idx+1}/${a.now.n}, ${Math.round(a.now.pct*100)}% full today.`)+(rest.length?T('\n남은 것:\n','\nLeft:\n')+rest.map(it=>'· '+it.text).join('\n'):T(' 오늘 그릇 가득! 🎉',' Full today! 🎉'))+(a.now.behind?T(`\n밀린 항목도 ${a.now.behind}개 있어.`,`\nPlus ${a.now.behind} from earlier days.`):'')}
