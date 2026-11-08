@@ -591,8 +591,7 @@ struct TodoListView: View {
     @Environment(\.widgetFamily) var family
 
     var body: some View {
-        let week = weekDates(of: entry.date)
-        let keys = week.map { dayKey($0) }
+        let keys = weekDates(of: entry.date).map { dayKey($0) }
         let todayKey = dayKey(entry.date)
         let week = entry.board.blocks.filter { !$0.fixed && keys.contains($0.date) }
         let todos = week.filter { !$0.done }.sorted { ($0.date, $0.start) < ($1.date, $1.start) }   // 체크한 건 위젯에서 빼요
