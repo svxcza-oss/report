@@ -55,7 +55,7 @@ struct LockSummary {
         let regular = list.filter { !$0.fixed }
         done = regular.filter { $0.done }.count
         total = regular.count
-        todosLeft = entry.board.todos.filter { $0.scope == "day" && !$0.done(at: entry.date) }.count
+        todosLeft = entry.board.todos.filter { $0.scope == "day" && $0.visible(at: entry.date) && !$0.done(at: entry.date) }.count
     }
 }
 

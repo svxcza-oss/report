@@ -49,12 +49,13 @@ enum LesserChat {
             "id": ["type": "string"], "name": ["type": "string"],
             "date": ["type": "string", "description": "New date YYYY-MM-DD"],
             "start": ["type": "string", "description": "New start time, 24h HH:MM"]]]),
-        ("list_todos", "Read the user's untimed to-do lists: 'today' (resets daily) and 'this_week' (resets every Monday).",
+        ("list_todos", "Read the user's untimed to-do lists: 'today' and 'this_week'. Checked one-off items disappear the next day (next week); items with repeat=true reset daily (weekly).",
          ["type": "object", "properties": [String: Any]()]),
         ("add_todo", "Add an untimed to-do. scope 'day' = daily list, 'week' = this week's list.",
          ["type": "object", "properties": [
             "text": ["type": "string", "description": "To-do text, max 60 characters"],
-            "scope": ["type": "string", "enum": ["day", "week"]]], "required": ["text", "scope"]]),
+            "scope": ["type": "string", "enum": ["day", "week"]],
+            "repeat": ["type": "boolean", "description": "true only for habits that should come back every day (week); default one-off"]], "required": ["text", "scope"]]),
         ("check_todo", "Check (or uncheck) an untimed to-do, found by id or text.",
          ["type": "object", "properties": [
             "id": ["type": "string"], "text": ["type": "string"], "done": ["type": "boolean", "description": "default true"]]]),

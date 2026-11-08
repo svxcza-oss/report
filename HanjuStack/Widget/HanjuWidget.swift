@@ -38,7 +38,10 @@ struct Todo: Identifiable {
     let text: String
     let scope: String
     let doneOn: String?
+    var repeats = false
     func done(at date: Date) -> Bool { doneOn != nil && doneOn == todoPeriod(scope, date) }
+    /// 한 번짜리는 체크한 날(주)이 지나면 사라져요. ↻ 반복은 계속 남아요.
+    func visible(at date: Date) -> Bool { repeats || doneOn == nil || doneOn! >= todoPeriod(scope, date) }
 }
 
 func todoPeriod(_ scope: String, _ date: Date) -> String {
@@ -124,7 +127,8 @@ func loadBoard() -> Board {
     board.challenges = root["challenges"] as? [[String: Any]] ?? []
     board.todos = ((root["todos"] as? [[String: Any]]) ?? []).compactMap { r in
         guard let id = r["id"] as? String, let text = r["text"] as? String else { return nil }
-        return Todo(id: id, text: text, scope: r["scope"] as? String == "week" ? "week" : "day", doneOn: r["doneOn"] as? String)
+        return Todo(id: id, text: text, scope: r["scope"] as? String == "week" ? "week" : "day", doneOn: r["doneOn"] as? String,
+                    repeats: (r["repeat"] as? Bool) == true)
     }
     return board
 }
@@ -663,7 +667,7 @@ struct TodoSection: View {
     let size: CGFloat
     var body: some View {
         let en = entry.board.language == "en"
-        let all = entry.board.todos.filter { $0.scope == scope }
+        let all = entry.board.todos.filter { $0.scope == scope && $0.visible(at: entry.date) }
         let open = all.filter { !$0.done(at: entry.date) }, closed = all.filter { $0.done(at: entry.date) }
         let ordered = open + closed
         let shown = ordered.count > limit ? Array(ordered.prefix(max(1, limit - 1))) : ordered
