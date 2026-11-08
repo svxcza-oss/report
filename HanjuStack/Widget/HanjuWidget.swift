@@ -594,15 +594,14 @@ struct TodoListView: View {
         let week = weekDates(of: entry.date)
         let keys = week.map { dayKey($0) }
         let todayKey = dayKey(entry.date)
-        let todos = entry.board.blocks
-            .filter { !$0.fixed && keys.contains($0.date) }
-            .sorted { ($0.done ? 1 : 0, $0.date, $0.start) < ($1.done ? 1 : 0, $1.date, $1.start) }   // 체크한 건 아래로
+        let week = entry.board.blocks.filter { !$0.fixed && keys.contains($0.date) }
+        let todos = week.filter { !$0.done }.sorted { ($0.date, $0.start) < ($1.date, $1.start) }   // 체크한 건 위젯에서 빼요
         let cols = family == .systemLarge ? 1 : 2
         let perCol = family == .systemMedium ? 4 : family == .systemSmall ? 4 : 11
         let room = cols * perCol
         let shown = todos.count > room ? Array(todos.prefix(room - 1)) : todos
         let size: CGFloat = family == .systemSmall ? 11 : 12
-        let done = todos.filter { $0.done }.count
+        let done = week.count - todos.count
         let label: (Block) -> String = { b in
             b.date == todayKey ? HanjuLanguage.text("오늘", "Today", language: entry.board.language) : HanjuLanguage.days(entry.board.language)[keys.firstIndex(of: b.date) ?? 0]
         }
@@ -610,10 +609,11 @@ struct TodoListView: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(HanjuLanguage.text("할 일", "Tasks", language: entry.board.language)).font(wf(14, .heavy))
                 Spacer()
-                Text("\(done) / \(todos.count)").font(wf(11)).monospacedDigit().foregroundStyle(.secondary)
+                Text("\(done) / \(week.count)").font(wf(11)).monospacedDigit().foregroundStyle(.secondary)
             }
             if todos.isEmpty {
-                Text(HanjuLanguage.text("이번 주 할 일이 없어요", "No tasks this week", language: entry.board.language)).font(wf(11)).foregroundStyle(.secondary)
+                Text(week.isEmpty ? HanjuLanguage.text("이번 주 할 일이 없어요", "No tasks this week", language: entry.board.language)
+                                  : HanjuLanguage.text("이번 주 할 일 다 했어요 🎉", "All done this week 🎉", language: entry.board.language)).font(wf(11)).foregroundStyle(.secondary)
             } else {
                 HStack(alignment: .top, spacing: 14) {
                     ForEach(0..<cols, id: \.self) { c in
@@ -668,8 +668,9 @@ struct TodoSection: View {
     var body: some View {
         let en = entry.board.language == "en"
         let all = entry.board.todos.filter { $0.scope == scope && $0.visible(at: entry.date) }
+        // 위젯에는 아직 안 한 것만. 체크한 건 바로 사라지고 앱에서만 보여요 (개수는 위에 n/m으로).
         let open = all.filter { !$0.done(at: entry.date) }, closed = all.filter { $0.done(at: entry.date) }
-        let ordered = open + closed
+        let ordered = open
         let shown = ordered.count > limit ? Array(ordered.prefix(max(1, limit - 1))) : ordered
         return VStack(alignment: .leading, spacing: 5) {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
@@ -683,6 +684,8 @@ struct TodoSection: View {
             }
             if all.isEmpty {
                 Text(en ? "Tap + to add" : "+ 를 눌러 추가해요").font(wf(size - 1)).foregroundStyle(.secondary)
+            } else if open.isEmpty {
+                Text(en ? "All done 🎉" : "다 했어요 🎉").font(wf(size - 1)).foregroundStyle(.secondary)
             } else {
                 ForEach(shown) { TodoRow(todo: $0, done: $0.done(at: entry.date), size: size) }
                 if ordered.count > shown.count {
@@ -747,7 +750,7 @@ struct ChallengeSection: View {
     let size: CGFloat
     var body: some View {
         let en = language == "en"
-        let ordered = challenge.items.filter { !$0.done } + challenge.items.filter(\.done)
+        let ordered = challenge.items.filter { !$0.done }   // 체크한 건 위젯에서 빼요
         let shown = ordered.count > limit ? Array(ordered.prefix(max(1, limit - 1))) : ordered
         let dday = challenge.daysLeft.map { $0 > 0 ? "D-\($0)" : $0 == 0 ? "D-day" : "D+\(-$0)" }
         return VStack(alignment: .leading, spacing: 5) {
@@ -770,6 +773,9 @@ struct ChallengeSection: View {
                 }
             }
             if challenge.state == "active" {
+                if ordered.isEmpty {
+                    Text(en ? "Today's vessel is full 🎉" : "오늘 그릇 가득 🎉").font(wf(size - 1)).foregroundStyle(.secondary)
+                }
                 ForEach(shown) { ChallengeRow(challenge: challenge.id, item: $0, size: size) }
                 if ordered.count > shown.count || challenge.behind > 0 {
                     Text([ordered.count > shown.count ? (en ? "+ \(ordered.count - shown.count) more" : "+ \(ordered.count - shown.count)개 더") : nil,
