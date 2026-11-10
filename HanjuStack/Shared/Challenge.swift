@@ -219,3 +219,22 @@ enum Vessel {
         }
     }
 }
+
+/// 블록 색 1–7. 색이 없는 블록(예전 매주 고정)은 id 글자 코드 합으로 정해요 — 페이지의 colorOf()와 같아요.
+enum BlockColor {
+    static func of(_ row: [String: Any]) -> Int {
+        if let c = (row["c"] as? NSNumber)?.intValue, (1...7).contains(c) { return c }
+        let sum = ((row["id"] as? String) ?? "").utf16.reduce(0) { $0 + Int($1) }
+        return sum % 7 + 1
+    }
+}
+
+/// 매주 고정 블록의 그날 완료 켜기/끄기 (doneOn: 완료한 날짜 목록, 60일 지난 건 정리).
+enum WeeklyDone {
+    static func toggle(_ row: inout [String: Any], date: String, today: String = Challenge.key(Date())) {
+        let keep = Challenge.key(Calendar(identifier: .gregorian).date(byAdding: .day, value: -60, to: Challenge.date(today) ?? Date()) ?? Date())
+        var list = (row["doneOn"] as? [String] ?? []).filter { $0 >= keep }
+        if let i = list.firstIndex(of: date) { list.remove(at: i) } else { list.append(date) }
+        row["doneOn"] = list
+    }
+}

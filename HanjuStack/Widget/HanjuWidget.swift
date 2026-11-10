@@ -20,7 +20,10 @@ struct Block: Identifiable {
     let done: Bool
     var fixed: Bool = false   // 매주 반복 일정
     var wd: Int = 0           // 반복 요일 (월 = 0)
+    var doneOn: [String] = [] // 매주 고정: 완료한 날짜들
     var end: Int { start + len }
+    /// 위젯 버튼이 바꿀 대상. 매주 고정은 그날만 바꾸도록 "id@날짜".
+    var toggleID: String { fixed ? "\(id)@\(date)" : id }
 }
 
 /// Visible hours, set in the app (default 8시–24시).
@@ -104,8 +107,9 @@ func loadBoard() -> Board {
     let factor = int(root["v"], 0) >= 4 ? 1 : 3
     let weekly: [Block] = ((root["fixed"] as? [[String: Any]]) ?? []).compactMap { r in
         guard let id = r["id"] as? String, let name = r["name"] as? String else { return nil }
-        return Block(id: id, name: name, len: max(1, int(r["len"], 2)) * factor, color: 0, date: "",
-                     start: max(0, int(r["start"], 0) + shift) * factor, done: false, fixed: true, wd: int(r["wd"], 0))
+        return Block(id: id, name: name, len: max(1, int(r["len"], 2)) * factor, color: BlockColor.of(r), date: "",
+                     start: max(0, int(r["start"], 0) + shift) * factor, done: false, fixed: true, wd: int(r["wd"], 0),
+                     doneOn: r["doneOn"] as? [String] ?? [])
     }
     let dated: [Block] = ((root["blocks"] as? [[String: Any]]) ?? []).compactMap { r in
         guard let id = r["id"] as? String, let name = r["name"] as? String,
@@ -154,7 +158,13 @@ func weekdayIndex(_ d: Date) -> Int { (Calendar(identifier: .gregorian).componen
 /// Blocks shown on one day: that date's blocks plus the weekly ones for its weekday.
 func items(_ all: [Block], on day: Date) -> [Block] {
     let key = dayKey(day), wd = weekdayIndex(day)
-    return all.filter { $0.fixed ? $0.wd == wd : $0.date == key }.sorted { $0.start < $1.start }
+    // 매주 고정은 그날의 한 칸으로 펼쳐요 (날짜와 그날 완료 여부를 채워서).
+    return all.compactMap { b -> Block? in
+        guard b.fixed else { return b.date == key ? b : nil }
+        guard b.wd == wd else { return nil }
+        return Block(id: b.id, name: b.name, len: b.len, color: b.color, date: key, start: b.start,
+                     done: b.doneOn.contains(key), fixed: true, wd: b.wd, doneOn: b.doneOn)
+    }.sorted { $0.start < $1.start }
 }
 
 func blockColor(_ c: Int) -> Color {
@@ -165,8 +175,8 @@ func blockColor(_ c: Int) -> Color {
 func inkColor(_ c: Int) -> Color { c == 2 ? Color(red: 0.16, green: 0.13, blue: 0) : .white }
 let fixedGray = Color(red: 0.55, green: 0.57, blue: 0.64)
 let doneGray = Color(red: 0.62, green: 0.63, blue: 0.66).opacity(0.55)
-func fillColor(_ b: Block) -> Color { b.fixed ? fixedGray : b.done ? doneGray : blockColor(b.color) }
-func textColor(_ b: Block) -> Color { b.fixed || b.done ? .white : inkColor(b.color) }
+func fillColor(_ b: Block) -> Color { b.done ? doneGray : blockColor(b.color) }
+func textColor(_ b: Block) -> Color { b.done ? .white : inkColor(b.color) }
 
 func clock(_ slot: Int, _ language: String = "ko") -> String {
     let m = slot * 10, h = m / 60
@@ -184,7 +194,12 @@ struct ToggleBlockIntent: AppIntent {
     func perform() async throws -> some IntentResult {
         let id = blockID
         try await editPlan { root, now in
-            editRow("blocks", id, in: &root, now: now) { $0["done"] = !(($0["done"] as? NSNumber)?.boolValue ?? false) }
+            if let at = id.firstIndex(of: "@") {   // 매주 고정: 그날만
+                let date = String(id[id.index(after: at)...])
+                editRow("fixed", String(id[..<at]), in: &root, now: now) { WeeklyDone.toggle(&$0, date: date) }
+            } else {
+                editRow("blocks", id, in: &root, now: now) { $0["done"] = !(($0["done"] as? NSNumber)?.boolValue ?? false) }
+            }
         }
         return .result()
     }
@@ -289,7 +304,7 @@ struct Piece: View {
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 3, style: .continuous)
-        return Button(intent: ToggleBlockIntent(blockID: block.id)) {
+        return Button(intent: ToggleBlockIntent(blockID: block.toggleID)) {
             shape.fill(fillColor(block).opacity(0.92))
                 .overlay(shape.stroke(Color.white.opacity(0.18), lineWidth: 1))
                 .overlay(alignment: .topLeading) {
@@ -307,7 +322,6 @@ struct Piece: View {
                 }
         }
         .buttonStyle(.plain)
-        .disabled(block.fixed)
         .invalidatableContent()
     }
 }
@@ -509,18 +523,28 @@ struct TodayRow: View {
 
     var body: some View {
         if block.fixed {
-            HStack(spacing: 7) {
-                piece
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(block.name).font(wf(12, .semibold)).lineLimit(1)
-                        .foregroundStyle(.secondary)
-                    if !compact {
-                        Text("\(clock(block.start, language))–\(clock(block.end, language)) \(HanjuLanguage.text("· 매주", "· weekly", language: language))")
-                            .font(wf(10)).foregroundStyle(.secondary)
+            // 매주 고정도 그날 완료를 체크할 수 있어요 (지우기는 앱에서).
+            Button(intent: ToggleBlockIntent(blockID: block.toggleID)) {
+                HStack(spacing: 7) {
+                    piece
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("↻ " + block.name).font(wf(12, .semibold)).lineLimit(1)
+                            .strikethrough(block.done)
+                            .foregroundStyle(block.done ? Color.secondary : Color.primary)
+                        if !compact {
+                            Text("\(clock(block.start, language))–\(clock(block.end, language)) \(HanjuLanguage.text("· 매주", "· weekly", language: language))")
+                                .font(wf(10)).foregroundStyle(.secondary)
+                        }
                     }
+                    Spacer(minLength: 0)
+                    Image(systemName: block.done ? "checkmark.square.fill" : "square")
+                        .font(wf(13))
+                        .foregroundStyle(block.done ? blockColor(4) : Color.secondary)
                 }
-                Spacer(minLength: 0)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .invalidatableContent()
         } else {
             HStack(spacing: 6) {
                 Button(intent: ToggleBlockIntent(blockID: block.id)) {

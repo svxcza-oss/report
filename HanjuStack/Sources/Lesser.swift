@@ -259,6 +259,8 @@ final class DesktopLesser: NSObject {
     /// 챌린지 그릇 (없으면 nil = 빈손).
     var vessel: (kind: String, percent: Double)? { didSet { tick() } }
     var onClick: (() -> Void)? { didSet { content.onClick = onClick } }
+    /// 레서가 지금 있는 자리 (채팅 창을 바로 위에 띄우려고). 꺼져 있으면 nil.
+    var frame: NSRect? { panel.isVisible ? panel.convertToScreen(sprite.frame) : nil }
     private var x: CGFloat = 200
     private var target: CGFloat = 200
     private var pauseUntil: Double = 0

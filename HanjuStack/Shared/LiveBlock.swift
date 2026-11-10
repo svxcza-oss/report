@@ -11,7 +11,7 @@ struct HanjuBlockActivity: ActivityAttributes {
         var name: String
         var start: Date
         var end: Date
-        var color: Int        // 1–7, 고정 일정은 0
+        var color: Int        // 1–7
         var fixed: Bool
     }
     /// 블록 id. 매주 고정 일정은 "id@날짜".
@@ -27,8 +27,15 @@ struct CompleteLiveBlockIntent: LiveActivityIntent {
 
     func perform() async throws -> some IntentResult {
         let id = blockID
-        if !id.contains("@") {
-            try await editPlan { root, now in editRow("blocks", id, in: &root, now: now) { $0["done"] = true } }
+        try await editPlan { root, now in
+            if let at = id.firstIndex(of: "@") {   // 매주 고정: 그날만 완료
+                let date = String(id[id.index(after: at)...])
+                editRow("fixed", String(id[..<at]), in: &root, now: now) {
+                    if !(($0["doneOn"] as? [String]) ?? []).contains(date) { WeeklyDone.toggle(&$0, date: date) }
+                }
+            } else {
+                editRow("blocks", id, in: &root, now: now) { $0["done"] = true }
+            }
         }
         for activity in Activity<HanjuBlockActivity>.activities where activity.attributes.blockID == id {
             await activity.end(nil, dismissalPolicy: .immediate)
@@ -66,10 +73,10 @@ enum LiveBlocks {
                                                          color: (row["c"] as? NSNumber)?.intValue ?? 1, fixed: false)))
         }
         for row in state["fixed"] as? [[String: Any]] ?? [] {
-            guard (row["wd"] as? NSNumber)?.intValue == weekday,
+            guard (row["wd"] as? NSNumber)?.intValue == weekday, !((row["doneOn"] as? [String]) ?? []).contains(key),
                   let id = row["id"] as? String, let name = row["name"] as? String else { continue }
             let start = (row["start"] as? NSNumber)?.intValue ?? 0, len = (row["len"] as? NSNumber)?.intValue ?? 6
-            candidates.append(Pick(id: "\(id)@\(key)", state: .init(name: name, start: at(start), end: at(start + len), color: 0, fixed: true)))
+            candidates.append(Pick(id: "\(id)@\(key)", state: .init(name: name, start: at(start), end: at(start + len), color: BlockColor.of(row), fixed: true)))
         }
         if let current = candidates.filter({ $0.state.start <= now && now < $0.state.end }).min(by: { $0.state.start < $1.state.start }) {
             return current

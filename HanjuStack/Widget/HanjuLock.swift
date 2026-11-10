@@ -123,7 +123,7 @@ let lesserFace: Image = {
     return Image(systemName: "square.stack.3d.up.fill")
 }()
 
-func liveTint(_ state: HanjuBlockActivity.ContentState) -> Color { state.fixed ? fixedGray : blockColor(state.color) }
+func liveTint(_ state: HanjuBlockActivity.ContentState) -> Color { blockColor(max(1, state.color)) }
 
 func liveTime(_ date: Date) -> String {
     let c = Calendar(identifier: .gregorian).dateComponents([.hour, .minute], from: date)
@@ -133,12 +133,10 @@ func liveTime(_ date: Date) -> String {
 struct LiveDoneButton: View {
     let context: ActivityViewContext<HanjuBlockActivity>
     var body: some View {
-        if !context.state.fixed {
-            Button(intent: CompleteLiveBlockIntent(blockID: context.attributes.blockID)) {
-                Label("완료", systemImage: "checkmark").font(.caption.weight(.bold))
-            }
-            .tint(liveTint(context.state))
+        Button(intent: CompleteLiveBlockIntent(blockID: context.attributes.blockID)) {
+            Label("완료", systemImage: "checkmark").font(.caption.weight(.bold))
         }
+        .tint(liveTint(context.state))
     }
 }
 
