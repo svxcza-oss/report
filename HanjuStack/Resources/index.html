@@ -71,12 +71,31 @@ button{font:inherit;cursor:pointer;border:0;border-radius:10px}
 .blk.short{font-size:9px;line-height:10px;padding:0 3px}
 .blk span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .blk.done{background-color:var(--done);--ink:#fff;color:#fff}
-.blk.fixed{background-color:var(--fixed);background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.14) 0 5px,transparent 5px 10px)}
+.blk.fixed{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.14) 0 5px,transparent 5px 10px)}
+.blk{-webkit-touch-callout:none}
+body.dragging,body.dragging *{user-select:none!important;-webkit-user-select:none!important;cursor:grabbing!important}
+.bmenu{position:fixed;z-index:70;min-width:210px;max-width:calc(100vw - 16px);background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:5px;box-shadow:0 10px 30px rgba(0,0,0,.22);display:grid}
+.bmenu button{background:none;color:inherit;text-align:left;font-size:13px;padding:8px 10px;border-radius:7px}
+.bmenu button:hover,.bmenu button:focus-visible{background:var(--well);outline:none}
+.bmenu button.bad{color:var(--bad)}
+.bmenu button:disabled{opacity:.45}
+.bmenu hr{border:0;border-top:1px solid var(--line);margin:4px 2px}
+.blk-dur{display:flex;gap:6px;align-items:center}
+.blk-dur button{background:var(--well);color:var(--fg);width:38px;height:38px;border-radius:8px;font-size:16px;flex:none}
+.blk-dur input{text-align:center}
+.blk-colors{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.blk-colors button{width:30px;height:30px;border-radius:50%;background:var(--c);border:2px solid transparent;padding:0}
+.blk-colors button[aria-pressed="true"]{border-color:var(--fg);box-shadow:0 0 0 2px var(--bg) inset}
+.sheet .lbl{font-size:12px;color:var(--muted)}
+body.chat-only{background:transparent}
+body.chat-only>*:not(#chat):not(.toast){display:none!important}
+body.chat-only .chat{inset:0;width:auto;height:auto;right:0;bottom:0;border-radius:0;border:0;box-shadow:none}
+body.chat-only #chat-swap{display:none}
 .blk.fixed span::before{content:"↻ "}
 .blk.carried:not(.done):not(.fixed) span::before{content:"↪ "}
 .rep input{position:absolute;opacity:0;pointer-events:none}
 .rep label{display:block;padding:11px 12px;border-radius:10px;background:var(--well);color:var(--muted);font-size:13px;cursor:pointer;white-space:nowrap}
-.rep input:checked+label{background:var(--fixed);color:#fff;font-weight:600}
+.rep input:checked+label{background:var(--accent);color:#fff;font-weight:600}
 .rep input:focus-visible+label{outline:2px solid var(--accent);outline-offset:2px}
 .blk.done span::before{content:"✓ "}
 .blk.lifted{opacity:.2}
@@ -429,6 +448,10 @@ function stampChanges(){
 }
 const wdOf=k=>(new Date(k+'T00:00').getDay()+6)%7;
 const find=id=>S.blocks.find(b=>b.id===id)||S.fixed.find(b=>b.id===id);
+// 매주 고정은 날짜마다 따로 완료해요 (doneOn: 완료한 날짜 목록)
+// 색이 없는 블록(예전 매주 고정)은 id로 색을 정해요. 위젯(Swift)도 같은 계산을 해요.
+const colorOf=b=>b.c>=1&&b.c<=7?b.c:([...String(b.id)].reduce((a,ch)=>a+ch.charCodeAt(0),0)%7)+1;
+const isDoneOn=(b,k)=>b.fixed?Array.isArray(b.doneOn)&&b.doneOn.includes(k):!!b.done;
 const onDay=k=>[...S.fixed.filter(f=>f.wd===wdOf(k)),...S.blocks.filter(b=>b.date===k)];
 const fits=(date,start,len,ex)=>start>=0&&start+len<=144&&!onDay(date).some(o=>o.id!==ex&&o.start<start+len&&start<o.start+o.len);
 function spot(len){ // least-stacked day (from today on, in the week on screen), earliest free cell in the visible hours
@@ -485,13 +508,16 @@ function render(fresh,flash){
   dates.forEach(dt=>{const k=key(dt);
     html+=`<div class="col${k===tk?' today':''}" data-date="${k}" style="--slots:${ROWS()}">`;
     for(const b of onDay(k)){if(b.start+b.len<=FROM()||b.start>=TO()){outside++;continue}const top=(b.start-FROM())*h;
-      html+=`<div class="blk${b.len===1?' short':''}${b.carried?' carried':''}${b.fixed?' fixed':''}${b.done?' done':''}${fresh===b.id?' drop':''}${flash===b.id?' flash':''}" tabindex="0" role="button" data-id="${b.id}" title="${esc(b.name)} ${hm(b.start)}–${hm(b.start+b.len)}"
-        aria-label="${esc(b.name)}, ${dayName(k)} ${hm(b.start)}${T('부터','')}${b.done?T(', 완료',', completed'):''}"
-        style="top:${top}px;height:${b.len*h}px;--c:${b.fixed?'var(--fixed)':'var(--t'+b.c+')'};--ink:${b.c===2?'#2a2200':'#fff'};--fall:${top+60}px"><span>${esc(b.name)}</span>${b.len*h>=16?'<i class="dup" title="Duplicate (⌘D)" aria-hidden="true">⧉</i>':''}</div>`}
+      html+=`<div class="blk${b.len===1?' short':''}${b.carried?' carried':''}${b.fixed?' fixed':''}${isDoneOn(b,k)?' done':''}${fresh===b.id?' drop':''}${flash===b.id?' flash':''}" tabindex="0" role="button" data-id="${b.id}" title="${esc(b.name)} ${hm(b.start)}–${hm(b.start+b.len)}"
+        aria-label="${esc(b.name)}, ${dayName(k)} ${hm(b.start)}${T('부터','')}${isDoneOn(b,k)?T(', 완료',', completed'):''}${b.fixed?T(', 매주 고정',', repeats weekly'):''}"
+        style="top:${top}px;height:${b.len*h}px;--c:var(--t${colorOf(b)});--ink:${colorOf(b)===2?'#2a2200':'#fff'};--fall:${top+60}px"><span>${esc(b.name)}</span>${b.len*h>=16?'<i class="dup" title="Duplicate (⌘D)" aria-hidden="true">⧉</i>':''}</div>`}
     html+='</div>';
   });
   board.innerHTML=html;
-  board.querySelectorAll('.blk').forEach(el=>{el.addEventListener('pointerdown',down);el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle(el.dataset.id)}else if(e.key==='Delete'||e.key==='Backspace'){remove(el.dataset.id)}else if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='d'){e.preventDefault();dupe(el.dataset.id)}})});
+  board.querySelectorAll('.blk').forEach(el=>{el.addEventListener('pointerdown',down);el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle(el.dataset.id,false,el.parentElement.dataset.date)}
+    else if(e.key==='ContextMenu'||(e.shiftKey&&e.key==='F10')){e.preventDefault();const r=el.getBoundingClientRect();blockMenu(el.dataset.id,el.parentElement.dataset.date,r.left+8,r.top+8)}
+    else if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='c'){e.preventDefault();copyBlock(el.dataset.id)}
+    else if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='v'){e.preventDefault();const b=find(el.dataset.id);if(b)pasteAt(el.parentElement.dataset.date,b.start+b.len)}else if(e.key==='Delete'||e.key==='Backspace'){remove(el.dataset.id)}else if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='d'){e.preventDefault();dupe(el.dataset.id)}})});
   board.querySelectorAll('.blk .dup').forEach(d=>d.title=T('복제 (⌘D)','Duplicate (⌘D)'));
   board.querySelectorAll('.blk .dup').forEach(d=>d.addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();dupe(d.parentElement.dataset.id)}));
   renderTodos();renderChallenges();
@@ -753,12 +779,16 @@ function openChallengeSheet(){
     close();toast(T(`${p.days.length}일 챌린지를 만들었어요`,`Created a ${p.days.length}-day challenge`));
     setTimeout(()=>document.querySelector(`.ch[data-c="${c.id}"]`)?.scrollIntoView({behavior:'smooth',block:'center'}),50)};
   preview();setTimeout(()=>$('ch-title').focus(),0)}
-function toggle(id,quiet){const b=find(id);if(!b)return;if(b.fixed){toast(T('매주 고정 일정이에요 · 끌어서 옮기거나 휴지통으로 지워요','Repeats weekly · drag to move or delete'));return}b.done=!b.done;if(b.done&&b.date===key(today()))L.celebrate();save();render(null,b.done?id:null);
+function toggle(id,quiet,date){const b=find(id);if(!b)return;
+  if(b.fixed){const k=validDate(date)?date:key(today()),keep=addDays(key(today()),-60),list=(Array.isArray(b.doneOn)?b.doneOn:[]).filter(x=>x>=keep),on=!list.includes(k);
+    b.doneOn=on?[...list,k]:list.filter(x=>x!==k);if(on&&k===key(today()))L.celebrate();save();render(null,on?id:null);
+    if(on&&!quiet)toast(T(`완료! · 매주 ${dayName(k)} 고정`,`Done! · repeats every ${dayName(k)}`));board.querySelector(`[data-id="${id}"]`)?.focus({preventScroll:true});return}
+  b.done=!b.done;if(b.done&&b.date===key(today()))L.celebrate();save();render(null,b.done?id:null);
   if(b.done&&!quiet){const mine=S.blocks.filter(x=>x.date===b.date);toast(mine.every(x=>x.done)?T(dayName(b.date)+'요일 클리어!',dayName(b.date)+' cleared!'):T('완료!','Done!'))}
   board.querySelector(`[data-id="${id}"]`)?.focus({preventScroll:true})}
 function copyOf(b,date,start){
-  if(b.fixed){const f={id:uid(),name:b.name,len:b.len,wd:wdOf(date),start,fixed:true};S.fixed.push(f);return f}
-  const c={id:uid(),name:b.name,len:b.len,c:b.c,date,start,done:false};S.blocks.push(c);return c}
+  if(b.fixed){const f={id:uid(),name:b.name,len:b.len,c:colorOf(b),wd:wdOf(date),start,fixed:true};S.fixed.push(f);return f}
+  const c={id:uid(),name:b.name,len:b.len,c:colorOf(b),date,start,done:false};S.blocks.push(c);return c}
 function dupe(id){ // same day right after the original, else anywhere free that day, else the next open day
   const b=find(id);if(!b)return;
   const date=b.fixed?key(weekDates(wk)[b.wd]):b.date;let s=null;
@@ -785,7 +815,7 @@ $('f').addEventListener('submit',e=>{
   if(!name){$('name').focus();return}
   const len=readDur(), p=spot(len);
   if(!p){toast(wk<0?T('지난주에는 쌓을 수 없어요','Cannot add blocks to a past week'):T('이 주에 남은 빈칸이 없어요','No free slot this week'));return}
-  if($('rep').checked){const f={id:uid(),name,len,wd:wdOf(p.d),start:p.s,fixed:true};S.fixed.push(f);$('name').value='';$('rep').checked=false;save();render(f.id);toast(T(`매주 ${dayName(p.d)} ${hm(p.s)} 고정 · 끌어서 원하는 시간으로 옮겨요`,`Repeats every ${dayName(p.d)} at ${hm(p.s)} · drag to adjust`));return}
+  if($('rep').checked){const f={id:uid(),name,len,c:(S.n%7)+1,wd:wdOf(p.d),start:p.s,fixed:true};S.n++;S.fixed.push(f);$('name').value='';$('rep').checked=false;save();render(f.id);toast(T(`매주 ${dayName(p.d)} ${hm(p.s)} 고정 · 끌어서 원하는 시간으로 옮겨요`,`Repeats every ${dayName(p.d)} at ${hm(p.s)} · drag to adjust`));return}
   const b={id:uid(),name,len,c:(S.n%7)+1,date:p.d,start:p.s,done:false};S.n++;
   S.blocks.push(b);$('name').value='';save();render(b.id);toast(T(`${dayName(p.d)} ${hm(p.s)}에 쌓았어요`,`Added · ${dayName(p.d)} ${hm(p.s)}`));
 });
@@ -826,12 +856,22 @@ $('prev').onclick=()=>{wk--;render()};$('next').onclick=()=>{wk++;render()};$('n
 
 function down(e){
   if(e.pointerType==='mouse'&&e.button!==0)return;
+  closeMenu();
+  // 끄는 동안 페이지 글자가 통째로 선택(파랗게)되지 않게 막아요
+  if(e.pointerType==='mouse')e.preventDefault();
+  getSelection()?.removeAllRanges();document.body.classList.add('dragging');
   const el=e.currentTarget,b=find(el.dataset.id),r=el.getBoundingClientRect();
-  drag={b,el,copy:e.altKey,x0:e.clientX,y0:e.clientY,grab:Math.max(0,Math.min(b.len-1,Math.floor((e.clientY-r.top)/slotH()))),moved:false};
+  drag={b,el,date:el.parentElement.dataset.date,copy:e.altKey,x0:e.clientX,y0:e.clientY,grab:Math.max(0,Math.min(b.len-1,Math.floor((e.clientY-r.top)/slotH()))),moved:false};
+  // 아이폰: 움직이지 않고 꾹 누르면 메뉴
+  if(e.pointerType!=='mouse')drag.press=setTimeout(()=>{if(!drag||drag.moved)return;const d=drag;end();drag=null;navigator.vibrate?.(10);blockMenu(d.b.id,d.date,d.x0,d.y0)},520);
   el.setPointerCapture(e.pointerId);el.onpointermove=move;el.onpointerup=up;el.onpointercancel=()=>{end();drag=null;render()};
 }
+// 블록을 끄는 동안에는 페이지 글자 선택을 아예 막아요 (끌 때 화면 전체가 파랗게 선택되던 문제)
+document.addEventListener('selectstart',e=>{if(drag)e.preventDefault()});
+board.addEventListener('mousedown',e=>{if(e.target.closest('.blk'))e.preventDefault()});
 function move(e){
-  if(!drag.moved){if(Math.hypot(e.clientX-drag.x0,e.clientY-drag.y0)<6)return;drag.moved=true;
+  if(drag&&!drag.moved)getSelection()?.removeAllRanges();
+  if(!drag.moved){if(Math.hypot(e.clientX-drag.x0,e.clientY-drag.y0)<6)return;drag.moved=true;clearTimeout(drag.press);
     const w=drag.el.getBoundingClientRect().width,cl=drag.el.cloneNode(true);cl.className='blk float';cl.style.width=w+'px';cl.style.top=cl.style.left='0';
     document.body.appendChild(cl);drag.cl=cl;if(!drag.copy)drag.el.classList.add('lifted');$('trash').hidden=false}
   const h=slotH(),w=parseFloat(drag.cl.style.width);
@@ -849,15 +889,85 @@ function ghost(col,start,ok){
   if(!drag.g){drag.g=document.createElement('div');drag.g.className='ghost'}
   col.appendChild(drag.g);const h=slotH();drag.g.style.top=(start-FROM())*h+'px';drag.g.style.height=drag.b.len*h+'px';drag.g.classList.toggle('bad',!ok);
 }
-function end(){drag.el.onpointermove=drag.el.onpointerup=drag.el.onpointercancel=null;drag.cl&&drag.cl.remove();drag.g&&drag.g.remove();$('trash').hidden=true;$('trash').classList.remove('over')}
+function end(){clearTimeout(drag.press);document.body.classList.remove('dragging');drag.el.onpointermove=drag.el.onpointerup=drag.el.onpointercancel=null;drag.cl&&drag.cl.remove();drag.g&&drag.g.remove();$('trash').hidden=true;$('trash').classList.remove('over')}
 function up(){
-  const {b,moved,t,copy}=drag;end();drag=null;
-  if(!moved){toggle(b.id);return}
+  const {b,moved,t,copy,date}=drag;end();drag=null;
+  if(!moved){toggle(b.id,false,date);return}
   if(t&&t.trash){if(copy){render();return}remove(b.id);return}
   if(copy&&t&&t.ok){const c=copyOf(b,t.date,t.start);save();render(c.id);toast(`복제했어요 · ${dayName(t.date)} ${hm(t.start)}`);return}
   if(t&&t.ok){if(b.fixed){b.wd=wdOf(t.date)}else{b.date=t.date}b.start=t.start;save();render(b.id);if(b.fixed)toast(T(`매주 ${dayName(t.date)} ${hm(t.start)}로 옮겼어요`,`Moved repeat · ${dayName(t.date)} ${hm(t.start)}`));return}
   if(t)toast(T('다른 블록과 겹쳐요','Overlaps another block'));render();
 }
+/* ---------- 블록 메뉴: 맥은 우클릭, 아이폰은 꾹 누르기 ----------
+   수정 · 완료 · 복사/붙여넣기 · 복제 · 매주 고정으로 바꾸기/풀기 · 지우기. 빈칸을 우클릭하면 붙여넣기. */
+let clip=null;
+const blkMenu=document.createElement('div');blkMenu.className='bmenu';blkMenu.hidden=true;blkMenu.setAttribute('role','menu');document.body.appendChild(blkMenu);
+function closeMenu(){if(!blkMenu.hidden){blkMenu.hidden=true;blkMenu.innerHTML=''}}
+function menuAt(x,y,items){
+  blkMenu.innerHTML=items.map((it,i)=>it==='-'?'<hr>':`<button type="button" role="menuitem" data-i="${i}"${it.bad?' class="bad"':''}${it.off?' disabled':''}>${it.label}</button>`).join('');
+  blkMenu.hidden=false;const r=blkMenu.getBoundingClientRect();
+  blkMenu.style.left=Math.max(8,Math.min(x,innerWidth-r.width-8))+'px';blkMenu.style.top=Math.max(8,Math.min(y,innerHeight-r.height-8))+'px';
+  blkMenu.onclick=e=>{const b=e.target.closest('button[data-i]');if(!b||b.disabled)return;const it=items[+b.dataset.i];closeMenu();it.run()};
+  blkMenu.onkeydown=e=>{const bs=[...blkMenu.querySelectorAll('button:not([disabled])')],i=bs.indexOf(document.activeElement);
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();bs[(i+(e.key==='ArrowDown'?1:-1)+bs.length)%bs.length]?.focus()}};
+  blkMenu.querySelector('button:not([disabled])')?.focus({preventScroll:true})}
+addEventListener('pointerdown',e=>{if(!blkMenu.hidden&&!blkMenu.contains(e.target))closeMenu()},true);
+addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu()});
+addEventListener('scroll',closeMenu,{passive:true,capture:true});
+function copyBlock(id){const b=find(id);if(!b)return;clip={id:b.id,name:b.name,len:b.len,c:colorOf(b),fixed:!!b.fixed};
+  toast(T('복사했어요 · 빈칸을 우클릭(아이폰은 꾹 누르기)해서 붙여넣어요','Copied · right-click (long-press) an empty slot to paste'))}
+function blockMenu(id,date,x,y){const b=find(id);if(!b)return;const d=b.fixed?date:b.date,done=isDoneOn(b,d);
+  menuAt(x,y,[
+    {label:T('✏️ 수정','✏️ Edit'),run:()=>editBlock(id,d)},
+    {label:done?T('↩︎ 완료 취소','↩︎ Not done'):T('✓ 완료','✓ Done'),run:()=>toggle(id,false,d)},
+    '-',
+    {label:T('📋 복사','📋 Copy'),run:()=>copyBlock(id)},
+    {label:T('⧉ 복제 (바로 뒤에)','⧉ Duplicate'),run:()=>dupe(id)},
+    '-',
+    b.fixed?{label:T('↻ 매주 고정 풀기','↻ Stop repeating'),run:()=>unfix(id,d)}:{label:T('↻ 매주 고정으로 바꾸기','↻ Repeat every week'),run:()=>makeFixed(id)},
+    '-',
+    {label:b.fixed?T('🗑 지우기 (매주 전부)','🗑 Delete (every week)'):T('🗑 지우기','🗑 Delete'),bad:true,run:()=>remove(id)}])}
+function slotMenu(date,start,x,y){
+  menuAt(x,y,[{label:clip?T(`📋 여기에 붙여넣기 · ${esc(clip.name)}`,`📋 Paste here · ${esc(clip.name)}`):T('📋 붙여넣기 (먼저 블록을 복사하세요)','📋 Paste (copy a block first)'),off:!clip,run:()=>pasteAt(date,start)}])}
+function pasteAt(date,start){if(!clip)return;start=Math.max(FROM(),Math.min(TO()-clip.len,start));let s=null;
+  for(let t=start;t+clip.len<=TO();t++)if(fits(date,t,clip.len)){s=t;break}
+  if(s==null)for(let t=start-1;t>=FROM();t--)if(fits(date,t,clip.len)){s=t;break}
+  if(s==null){toast(T('그날은 빈칸이 없어요','No free slot that day'));return}
+  const c=copyOf(clip,date,s);save();render(c.id);toast(T(`붙여넣었어요 · ${dayName(date)} ${hm(s)}`,`Pasted · ${dayName(date)} ${hm(s)}`))}
+function makeFixed(id){const b=S.blocks.find(x=>x.id===id);if(!b)return;
+  const f={id:uid(),name:b.name,len:b.len,c:colorOf(b),wd:wdOf(b.date),start:b.start,fixed:true,doneOn:b.done?[b.date]:[]};
+  S.blocks=S.blocks.filter(x=>x!==b);S.fixed.push(f);save();render(f.id);toast(T(`매주 ${dayName(b.date)} ${hm(b.start)} 고정이에요`,`Repeats every ${dayName(b.date)} at ${hm(b.start)}`))}
+function unfix(id,date){const f=S.fixed.find(x=>x.id===id);if(!f)return;const k=validDate(date)?date:key(weekDates(wk)[f.wd]);
+  const b={id:uid(),name:f.name,len:f.len,c:colorOf(f),date:k,start:f.start,done:isDoneOn(f,k)};
+  S.fixed=S.fixed.filter(x=>x!==f);S.blocks.push(b);save();render(b.id);toast(T(`고정을 풀었어요 · ${dayName(k)} ${k.slice(5).replace('-','/')}에만 남겼어요`,`No longer repeats · kept only on ${k.slice(5).replace('-','/')}`))}
+function editBlock(id,date){const b=find(id);if(!b)return;
+  let el=$('blk-sheet');if(!el){el=document.createElement('div');el.id='blk-sheet';el.className='sheet';document.body.appendChild(el)}
+  let len=b.len,c=colorOf(b);const k=b.fixed?date:b.date;
+  el.innerHTML=`<form id="blk-form" role="dialog" aria-modal="true" aria-labelledby="blk-sheet-title">
+    <header><b id="blk-sheet-title">${T('블록 수정','Edit block')}${b.fixed?T(` · 매주 ${dayName(k)}`,` · every ${dayName(k)}`):''}</b><button type="button" id="blk-close" aria-label="${T('닫기','Close')}">✕</button></header>
+    <label><span>${T('이름','Name')}</span><input id="blk-name" maxlength="60" autocomplete="off" enterkeyhint="done" value="${esc(b.name)}"></label>
+    <label><span>${T('걸리는 시간','Duration')} · ${hm(b.start)} ${T('시작','start')}</span><div class="blk-dur"><button type="button" id="blk-dm" aria-label="${T('10분 줄이기','10 minutes less')}">−</button><input id="blk-len" autocomplete="off" aria-label="${T('걸리는 시간','Duration')}"><button type="button" id="blk-dp" aria-label="${T('10분 늘리기','10 minutes more')}">＋</button></div></label>
+    <div><span class="lbl">${T('색','Color')}</span><div class="blk-colors">${[1,2,3,4,5,6,7].map(i=>`<button type="button" data-c="${i}" style="--c:var(--t${i})" aria-label="${T('색','Color')} ${i}" aria-pressed="${i===c}"></button>`).join('')}</div></div>
+    <button type="submit" class="go">${T('저장','Save')}</button></form>`;
+  el.hidden=false;const close=()=>{el.hidden=true;el.innerHTML='';board.querySelector(`[data-id="${id}"]`)?.focus({preventScroll:true})};
+  const show=()=>{$('blk-len').value=durText(len);$('blk-dm').disabled=len<=1;$('blk-dp').disabled=len>=144};show();
+  const read=()=>{const v=parseDur($('blk-len').value);if(v!=null&&v>0)len=Math.max(1,Math.min(144,Math.ceil(v/10)));show()};
+  $('blk-dm').onclick=()=>{read();len=Math.max(1,len-1);show()};$('blk-dp').onclick=()=>{read();len=Math.min(144,len+1);show()};
+  $('blk-len').addEventListener('change',read);$('blk-len').addEventListener('focus',e=>e.target.select());
+  el.querySelectorAll('.blk-colors button').forEach(x=>x.onclick=()=>{c=+x.dataset.c;el.querySelectorAll('.blk-colors button').forEach(y=>y.setAttribute('aria-pressed',String(y===x)))});
+  $('blk-close').onclick=close;el.onclick=e=>{if(e.target===el)close()};$('blk-form').onkeydown=e=>{if(e.key==='Escape')close()};
+  $('blk-form').onsubmit=e=>{e.preventDefault();read();const name=$('blk-name').value.trim();if(!name){$('blk-name').focus();return}
+    if(len!==b.len&&!fits(k,b.start,len,b.id)){toast(T('그 길이면 다음 블록과 겹쳐요','That length overlaps the next block'));return}
+    b.name=name.slice(0,60);b.len=len;b.c=c;save();render(b.id);close();toast(T('수정했어요','Saved'))};
+  setTimeout(()=>{$('blk-name').focus();$('blk-name').select()},0)}
+board.addEventListener('contextmenu',e=>{const el=e.target.closest('.blk');
+  if(el){e.preventDefault();blockMenu(el.dataset.id,el.parentElement.dataset.date,e.clientX,e.clientY);return}
+  const col=e.target.closest('.col');if(col){e.preventDefault();const r=col.getBoundingClientRect();slotMenu(col.dataset.date,FROM()+Math.floor((e.clientY-r.top)/slotH()),e.clientX,e.clientY)}});
+// 아이폰: 빈칸을 꾹 누르면 붙여넣기
+board.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'||e.target.closest('.blk'))return;const col=e.target.closest('.col');if(!col)return;
+  const x=e.clientX,y=e.clientY,r=col.getBoundingClientRect(),t=setTimeout(()=>{stop();slotMenu(col.dataset.date,FROM()+Math.floor((y-r.top)/slotH()),x,y)},560);
+  const mv=ev=>{if(Math.hypot(ev.clientX-x,ev.clientY-y)>8)stop()},stop=()=>{clearTimeout(t);removeEventListener('pointermove',mv);removeEventListener('pointerup',stop);removeEventListener('pointercancel',stop)};
+  addEventListener('pointermove',mv);addEventListener('pointerup',stop);addEventListener('pointercancel',stop)});
 addEventListener('resize',()=>{if(!drag)render()});
 S=load();rememberSaved();if(S._m){delete S._m;save()}
 
@@ -948,7 +1058,7 @@ function slotOf(t){ // "15:00", "15", "3pm", "오후 3시 30분" → 10분 칸
   if(pm&&h<12)h+=12;if(am&&h===12)h=0;if(h>24||mi>59)return null;return Math.min(143,h*6+Math.floor(mi/10))}
 const validDate=d=>/^\d{4}-\d{2}-\d{2}$/.test(String(d||''))&&!isNaN(new Date(d+'T00:00'));
 function dateRange(from,to){const out=[],a=new Date(from+'T00:00'),b=new Date(to+'T00:00');for(let d=new Date(a);d<=b&&out.length<62;d.setDate(d.getDate()+1))out.push(key(d));return out}
-const asItem=(b,k)=>({id:b.id,name:b.name,date:k,start:clock(b.start),end:clock(b.start+b.len),minutes:b.len*10,done:!!b.done,repeat_weekly:!!b.fixed});
+const asItem=(b,k)=>({id:b.id,name:b.name,date:k,start:clock(b.start),end:clock(b.start+b.len),minutes:b.len*10,done:isDoneOn(b,k),repeat_weekly:!!b.fixed});
 function toolList(a){const from=validDate(a.from)?a.from:key(today()),to=validDate(a.to)?a.to:from;
   const blocks=[];for(const k of dateRange(from,to<from?from:to))for(const b of onDay(k).sort((x,y)=>x.start-y.start))blocks.push(asItem(b,k));return {from,to,blocks}}
 function freeOn(date,len,after){for(let s=Math.max(FROM(),after||0);s+len<=TO();s++)if(fits(date,s,len))return s;for(let s=0;s+len<=144;s++)if(fits(date,s,len))return s;return null}
@@ -958,12 +1068,14 @@ function toolAdd(a){const name=String(a.name||'').trim().slice(0,40);if(!name)re
   if(a.start&&s==null)return {error:T('시간을 못 알아들었어요: ','Could not read the time: ')+a.start};
   if(s!=null&&!fits(date,s,len)){const o=onDay(date).find(o=>o.start<s+len&&s<o.start+o.len);return {error:T('그 시간엔 이미 블록이 있어요','That time is already taken'),conflict:o?asItem(o,date):null}}
   if(s==null){s=freeOn(date,len);if(s==null)return {error:T('그날 빈칸이 없어요','No free slot that day')}}
-  let b;if(a.repeat_weekly){b={id:uid(),name,len,wd:wdOf(date),start:s,fixed:true};S.fixed.push(b)}else{b={id:uid(),name,len,c:(S.n%7)+1,date,start:s,done:false};S.n++;S.blocks.push(b)}
+  let b;if(a.repeat_weekly){b={id:uid(),name,len,c:(S.n%7)+1,wd:wdOf(date),start:s,fixed:true};S.n++;S.fixed.push(b)}else{b={id:uid(),name,len,c:(S.n%7)+1,date,start:s,done:false};S.n++;S.blocks.push(b)}
   save();showDate(date);render(b.id);return {ok:true,added:asItem(b,date)}}
 function pick(a){if(a.id){const b=find(a.id);if(b)return b}
   const q=String(a.name||'').trim().toLowerCase();if(!q)return null;const pool=S.blocks.filter(b=>!validDate(a.date)||b.date===a.date);
-  return pool.find(b=>b.name.toLowerCase()===q)||pool.filter(b=>b.name.toLowerCase().includes(q)).sort((x,y)=>Math.abs(new Date(x.date)-today())-Math.abs(new Date(y.date)-today()))[0]||null}
-function toolDone(a){const b=pick(a);if(!b)return {error:T('그 블록을 못 찾았어요','Could not find that block')};if(b.fixed)return {error:T('매주 고정 일정은 완료 표시를 안 해요','Weekly repeats cannot be completed')};
+  const weekly=S.fixed.find(b=>b.name.toLowerCase()===q);
+  return pool.find(b=>b.name.toLowerCase()===q)||weekly||pool.filter(b=>b.name.toLowerCase().includes(q)).sort((x,y)=>Math.abs(new Date(x.date)-today())-Math.abs(new Date(y.date)-today()))[0]||null}
+function toolDone(a){const b=pick(a);if(!b)return {error:T('그 블록을 못 찾았어요','Could not find that block')};
+  if(b.fixed){const k=validDate(a.date)?a.date:key(today());if(isDoneOn(b,k)!==(a.done!==false))toggle(b.id,true,k);return {ok:true,block:asItem(b,k)}}
   const done=a.done!==false;if(b.done!==done){b.done=done;if(done&&b.date===key(today()))L.celebrate();save();showDate(b.date);render(null,done?b.id:null)}return {ok:true,block:asItem(b,b.date)}}
 function toolMove(a){const b=pick(a);if(!b)return {error:T('그 블록을 못 찾았어요','Could not find that block')};
   const date=validDate(a.date)?a.date:(b.fixed?key(weekDates(0)[b.wd]):b.date),s=a.start?slotOf(a.start):b.start;if(s==null)return {error:T('시간을 못 알아들었어요','Could not read the time')};
@@ -977,7 +1089,7 @@ function toolStats(a){ // 계획 분석: 빈도, 시간 분포, 완료율
   const end=validDate(a.to)?a.to:key(today());let start=a.from;if(!validDate(start)){const d=weekDates(0)[0];d.setDate(d.getDate()-21);start=key(d)}
   const dates=dateRange(start,end<start?start:end),past=k=>k<=key(today());
   const tasks={},wd=[0,0,0,0,0,0,0].map(()=>({planned:0,done:0})),hours={};let planned=0,done=0,count=0,doneCount=0,dayLoad={};
-  for(const k of dates)for(const b of onDay(k)){const m=b.len*10,name=b.name.trim(),isDone=!!b.done&&!b.fixed,w=wdOf(k);
+  for(const k of dates)for(const b of onDay(k)){const m=b.len*10,name=b.name.trim(),isDone=isDoneOn(b,k),w=wdOf(k);
     const t=tasks[name]||(tasks[name]={name,times:0,minutes:0,done:0,repeat_weekly:!!b.fixed});t.times++;t.minutes+=m;if(isDone)t.done++;
     if(!b.fixed){planned+=m;count++;if(isDone){done+=m;doneCount++}wd[w].planned+=m;if(isDone)wd[w].done+=m;dayLoad[k]=(dayLoad[k]||0)+m}
     const h=Math.floor(b.start/6),bucket=h<9?T('9시 전','before 9am'):h<12?T('오전 9-12시','9am-12pm'):h<15?T('오후 12-3시','12-3pm'):h<18?T('오후 3-6시','3-6pm'):h<21?T('저녁 6-9시','6-9pm'):T('밤 9시 이후','after 9pm');hours[bucket]=(hours[bucket]||0)+m}
@@ -1040,7 +1152,24 @@ const Chat=(()=>{
   function setEngine(e){engine=e||engine;$('chat-engine').textContent=engine?T('지금 쓰는 AI: ','Using: ')+engineName(engine):''}
   window.hanjuChatEvent=e=>{if(!e||e.id!==seq)return;setBusy(false);if(e.note)bubble('note',e.note);
     if(e.engine==='script'||!e.text)say('lesser',scripted(turns.filter(t=>t.role==='me').slice(-1)[0]?.text));else say('lesser',e.text);setEngine(e.engine)};
-  window.hanjuAIStatus=s=>{status=s||{};paint()};
+  // 채팅을 시작할 때, 이 기기에서 AI 대화가 안 되면 레서가 이유와 방법을 먼저 말해 줘요 (한 번만).
+  let told=false;
+  function capabilityNote(){
+    if(told||box.hidden)return;
+    const p=S.ai.provider;if(p==='script'){told=true;return}
+    if(!NATIVE){told=true;say('lesser',T('브라우저에서는 정해진 말로만 대답할 수 있어. 한 주 쌓기 앱에서 열면 진짜 대화가 돼!','In the browser I can only give scripted replies. Open the HanjuStack app to really chat!'));return}
+    if(status.apple==null)return;   // 아직 상태를 못 받았어요
+    const keyed=status.anthropic||status.openai;if(keyed&&p!=='apple'){told=true;return}
+    const a=String(status.apple||'');if(a==='available'){told=true;return}
+    told=true;
+    const why=a.includes('appleIntelligenceNotEnabled')?T('이 기기는 Apple Intelligence가 꺼져 있어서 기기 안 AI를 못 써. 설정 → Apple Intelligence 및 Siri에서 켜면 돼.','Apple Intelligence is turned off on this device. Turn it on in Settings → Apple Intelligence & Siri.')
+      :a.includes('modelNotReady')?T('기기 안 AI 모델을 아직 내려받는 중이야. 와이파이에 연결해 두고 조금 뒤에 다시 와 줘.','The on-device model is still downloading. Stay on Wi-Fi and try again soon.')
+      :a.includes('deviceNotEligible')?T('이 기기는 Apple Intelligence를 지원하지 않아서 기기 안 AI를 못 써.','This device does not support Apple Intelligence, so the on-device model is unavailable.')
+      :T('이 기기의 OS가 낮아서 기기 안 AI를 못 써.','This OS version is too old for the on-device model.');
+    const need=T('\n기기 안 AI는 Apple Intelligence가 되는 기기에서만 돼: 맥은 M1 이상 + macOS 26, 아이폰은 15 Pro·16 이상 + iOS 26, 아이패드는 M1·A17 Pro 이상 + iPadOS 26.','\nThe on-device model needs Apple Intelligence: a Mac with M1 or later on macOS 26, iPhone 15 Pro / 16 or later on iOS 26, or an iPad with M1 / A17 Pro or later on iPadOS 26.');
+    const now=T('\n그래서 지금은 정해진 말로만 대답해. ⚙︎에서 Claude나 OpenAI API 키를 넣으면 이 기기에서도 똑똑하게 대화하고 블록도 말로 쌓아 줄게!','\nFor now I can only give scripted replies. Add a Claude or OpenAI API key in ⚙︎ and I can really chat and stack blocks for you on this device too!');
+    say('lesser',why+(a.includes('appleIntelligenceNotEnabled')||a.includes('modelNotReady')?'':need)+now)}
+  window.hanjuAIStatus=s=>{status=s||{};paint();capabilityNote()};
   function paint(){const p=$('ai-provider').value,keyed=p==='anthropic'||p==='openai';
     $('ai-key-wrap').hidden=$('ai-model-wrap').hidden=$('ai-key-row').hidden=!keyed||!NATIVE;
     $('ai-key').placeholder=status[p]?T('저장됨 · 바꾸려면 새 키 입력','Saved · type a new key to replace'):(p==='anthropic'?'sk-ant-...':'sk-...');
@@ -1054,7 +1183,8 @@ const Chat=(()=>{
     $('ai-status').textContent=lines.join('\n');$('ai-status').style.whiteSpace='pre-line'}
   function hints(){$('chat-hints').innerHTML='';for(const h of T(['오늘 뭐 남았어?','내 계획 분석해줘','다음 주 계획 같이 세워줘','오늘 할 일에 물 2L 추가해줘','챌린지 어디까지 했어?'],["What's left today?",'Analyze my plan','Help me plan next week','Add "drink water" to today\'s to-dos','How is my challenge going?'])){const b=document.createElement('button');b.type='button';b.textContent=h;b.onclick=()=>ask(h);$('chat-hints').appendChild(b)}}
   function open(on){box.hidden=!on;if(on){if(!log.children.length){say('lesser',T(`안녕! 나는 ${L.name()}야. 계획 얘기든 그냥 수다든 말 걸어 줘.`,`Hi! I'm ${L.name()}. Talk to me about your plan, or anything.`))}hints();
-      if(NATIVE)window.webkit.messageHandlers.native.postMessage({action:'aiStatus'});paint();setTimeout(()=>input.focus(),0)}}
+      if(NATIVE)window.webkit.messageHandlers.native.postMessage({action:'aiStatus'});paint();capabilityNote();setTimeout(()=>input.focus(),0)}
+    else if(window.hanjuChatOnly&&NATIVE)window.webkit.messageHandlers.native.postMessage({action:'closeChat'})}
   window.hanjuChatToggle=()=>open(box.hidden);
   window.chatLanguage=()=>{const t={'#chat-title':['레서와 대화','Chat with Lesser'],'#chat-swap':['레서 바꾸기','Switch Lesser'],'#ai-save':['키 저장','Save key'],'#ai-forget':['키 지우기','Forget key'],'#chat-send':['보내기','Send'],'#ai-provider-label':['대화 AI','Chat AI'],'#ai-key-label':['API 키','API key'],'#ai-model-label':['모델 (비우면 기본값)','Model (blank = default)']};
     for(const [k,v] of Object.entries(t))document.querySelector(k).textContent=T(...v);
@@ -1071,6 +1201,8 @@ const Chat=(()=>{
   return {open};
 })();
 window.hanjuOpenChat=()=>Chat.open(true);
+// 바탕화면 레서를 누르면 뜨는 작은 채팅 창: 페이지는 같지만 채팅만 보여요
+if(window.hanjuChatOnly){document.body.classList.add('chat-only');Chat.open(true)}
 
 applyMode();render();
 if(window.pendingDate){showDate(window.pendingDate)}

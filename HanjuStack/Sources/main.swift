@@ -23,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     var clockTimer: Timer?
     lazy var lesser = MenuBarLesser()
     lazy var walker = DesktopLesser()
+    var chatPanel: ChatPanel?   // 바탕화면 레서를 누르면 뜨는 작은 채팅 창
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         // 같은 앱이 이미 켜져 있으면(다른 위치에 깔린 복사본 포함) 그쪽을 앞으로 가져오고 이건 닫아요.
@@ -89,11 +90,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         lesser.onOpen = { [weak self] in self?.showWindow() }
         lesser.onCharacter = { [weak self] c in self?.run("window.hanjuSetMascot && window.hanjuSetMascot('\(c)')") }
         walker.playback = lesser.playback
-        // 바탕화면 레서를 누르면 앱을 앞으로 가져오고 레서와 대화를 열어요.
-        walker.onClick = { [weak self] in
-            self?.showWindow()
-            self?.run("window.hanjuOpenChat && window.hanjuOpenChat()")
-        }
+        // 바탕화면 레서를 누르면 큰 창은 그대로 두고 레서 위에 작은 채팅 창만 떠요. 한 번 더 누르면 닫혀요.
+        walker.onClick = { [weak self] in self?.toggleChatPanel() }
         // 레서 켜기/끄기는 앱 안·바탕화면이 하나로 움직여요 (저장 파일의 "lesser").
         // 메뉴 막대에서 위치를 고르면 켜지고, "끄기"를 고르면 앱 안 레서도 같이 숨어요.
         lesser.onPlace = { [weak self] place in
@@ -139,21 +137,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
 
     // The page's copy is merged item by item into the shared file, so widget or other-device edits are kept.
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
-        guard message.frameInfo.isMainFrame else { return }
-        if let body = message.body as? [String: Any], chat?.handle(body) == true { return }   // 레서 채팅
-        guard let body = message.body as? [String: Any], body["action"] as? String == "save",
-              let state = body["state"] as? [String: Any] else { return }
+        guard message.frameInfo.isMainFrame, let body = message.body as? [String: Any] else { return }
+        let panel = chatPanel.flatMap { message.webView === $0.web ? $0 : nil }   // 작은 채팅 창에서 왔는지
+        if body["action"] as? String == "closeChat" { panel?.close(); return }
+        if (panel?.chat ?? chat)?.handle(body) == true { return }   // 레서 채팅
+        guard body["action"] as? String == "save", let state = body["state"] as? [String: Any] else { return }
+        let reply: (String) -> Void = { [weak self] js in if let panel { panel.run(js) } else { self?.run(js) } }
         do {
             let saved = try store.update { current in PlanMerge.merge(current, state) ?? state }
-            lastRevision = HanjuStore.revision(saved)
-            run("window.hanjuDidSave && window.hanjuDidSave(\(lastRevision))")
-            if !PlanMerge.same(saved, state) { lastRevision = -1; pullFromWidget() }   // 합쳐진 내용을 화면에도
+            let revision = HanjuStore.revision(saved)
+            reply("window.hanjuDidSave && window.hanjuDidSave(\(revision))")
+            if panel != nil {
+                lastRevision = -1; pullFromWidget()          // 채팅 창에서 바꾼 걸 큰 창에도
+            } else {
+                lastRevision = revision
+                if !PlanMerge.same(saved, state) { lastRevision = -1; pullFromWidget() }   // 합쳐진 내용을 화면에도
+                if chatPanel?.isVisible == true { chatPanel?.load(saved) }
+            }
             WidgetCenter.shared.reloadAllTimelines(); refreshLesser()
             cloud?.sync()
         } catch {
-            run("window.hanjuSaveRejected && window.hanjuSaveRejected()")
+            reply("window.hanjuSaveRejected && window.hanjuSaveRejected()")
             lastRevision = -1; pullFromWidget(); showError(error)
         }
+    }
+
+    func toggleChatPanel() {
+        if let chatPanel, chatPanel.isVisible { chatPanel.close(); return }
+        if chatPanel == nil { chatPanel = ChatPanel(handler: self, state: try? store.read()) }
+        else if let state = try? store.read() { chatPanel?.load(state) }
+        chatPanel?.show(above: walker.frame)
     }
 
     func pullFromWidget() {
@@ -164,6 +177,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
             if lastRevision >= 0 { cloud?.sync() }   // 위젯에서 바뀐 것도 아이폰으로
             let data = try JSONSerialization.data(withJSONObject: state, options: [.sortedKeys])
             guard let text = String(data: data, encoding: .utf8) else { return }
+            if chatPanel?.isVisible == true { chatPanel?.load(state) }
             guard loaded else { return }
             web.evaluateJavaScript("window.hanjuLoad && window.hanjuLoad(\(text))") { [weak self] value, error in
                 if error == nil, value as? Bool == true { self?.lastRevision = revision; self?.refreshLesser() }
