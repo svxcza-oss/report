@@ -63,7 +63,7 @@ final class ChatPanel: NSObject, WKNavigationDelegate {
 
     /// 레서 바로 위에 띄워요 (화면 밖으로 안 나가게).
     func show(above anchor: NSRect?) {
-        let screen = NSScreen.screens.first { anchor.map { s in $0.frame.intersects(s) } ?? false } ?? NSScreen.main
+        let screen = NSScreen.screens.first { screen in anchor.map { screen.frame.intersects($0) } ?? false } ?? NSScreen.main
         let area = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
         var frame = panel.frame
         if let anchor {
